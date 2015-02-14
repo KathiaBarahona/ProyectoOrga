@@ -6,12 +6,17 @@
 #include<stdio.h>
 #include<stdlib.h>
 using namespace std;
-
 struct Campo{
 	string nombre;
 	string tipo;
 	int tamano;
 };
+void Agregar(const char*, vector<Campo>);
+void Listar(const char*, vector<Campo>);
+void Borrar();
+void Modificar();
+void Compactar();
+void Buscar();
 void split(const string& s,char delimeter, vector<string>& v){
 	string::size_type i=0;
 	string::size_type j= s.find(delimeter);
@@ -47,17 +52,17 @@ int main(int argc, char* argv[]){
 		ifstream archivo;
 		archivo.open(nestructura);
 		if(archivo!=NULL){
-		string line;
-		while(getline(archivo,line)){
-			vector<string> fields;
-			split (line,'-',fields);
-			Campo c;
-			c.nombre = fields[0];
-			c.tipo = fields[1];
-			c.tamano = atoi(fields[2].c_str());	
-			registros.push_back(c);
-		}
-		archivo.close();
+			string line;
+			while(getline(archivo,line)){
+				vector<string> fields;
+				split (line,'-',fields);
+				Campo c;
+				c.nombre = fields[0];
+				c.tipo = fields[1];
+				c.tamano = atoi(fields[2].c_str());	
+				registros.push_back(c);
+			}
+			archivo.close();
 		}else{
 			cout<<"La estructura no existe!"<<endl;
 			return 0;
@@ -99,58 +104,74 @@ int main(int argc, char* argv[]){
 		}
 		archivo.close();//Se guarda la estructura para ser utilizada en el futuro
 	}
-
 	int opcion2=0;
 	while(opcion2 != 3){
 		cout << "1.Agregar Datos\n2.Listar Datos\n3.Salir" << endl;
 		cin >> opcion2;
 		if(opcion2==1){
-			ofstream out(nbin, ios::out|ios::binary|ios::app);
-			for(int i=0; i< registros.size();i++){
-				if(registros[i].tipo == "Entero"){
-					int value;
-					cout << "Ingrese " << registros[i].nombre << endl;
-					cin >> value;
-					out.write(reinterpret_cast<char*>(&value), sizeof(int));
-				}else{
-					char texto[registros[i].tamano];
-					cout << "Ingrese " << registros[i].nombre << endl;
-					cin >> texto;
-					out.write(texto,registros[i].tamano-1); 
-				}
-			}
-			out.close();
+			Agregar(nbin, registros);
 		}else{
 			if(opcion2==2){
-				charint ci;
-				int i=0;
-				ifstream in(nbin,ios::in|ios::binary);
-				while(!in.eof()){
-					if(i==registros.size())
-						i=0;
-					if(registros[i].tipo=="Entero"){
-						char buffer[sizeof(int)];
-						if(!in.read(buffer,sizeof(int)))
-							break;
-						cout << registros[i].nombre <<"-";
-						memcpy(ci.raw,buffer,sizeof(int));
-						cout << ci.num << endl;
-					}else{
-						if(registros[i].tipo=="Texto"){
-							char buffer[registros[i].tamano-1];
-							if(!in.read(buffer,registros[i].tamano-1))
-								break;
-							cout << registros[i].nombre << "-";
-							buffer[registros[i].tamano-1]='\0';
-							cout << buffer << endl;
-						}
-					}		
-					i++;
-				}
-				in.close();
-
-			}}
+				Listar(nbin, registros);
+			}
+		}
 	}
 
 	return 0;
 }
+void Agregar(const char* nbin, vector<Campo> registros){
+	ofstream out(nbin, ios::out|ios::binary|ios::app);
+	for(int i=0; i< registros.size();i++){
+		if(registros[i].tipo == "Entero"){
+			int value;
+			cout << "Ingrese " << registros[i].nombre << endl;
+			cin >> value;
+			out.write(reinterpret_cast<char*>(&value), sizeof(int));
+		}else{
+			char texto[registros[i].tamano];
+			cout << "Ingrese " << registros[i].nombre << endl;
+			cin >> texto;
+			out.write(texto,registros[i].tamano-1); 
+		}
+	}
+	out.close();
+
+}
+void Listar(const char* nbin, vector<Campo> registros){
+	charint ci;
+	int i=0;
+	ifstream in(nbin,ios::in|ios::binary);
+	while(!in.eof()){
+		if(i==registros.size())
+			i=0;
+		if(registros[i].tipo=="Entero"){
+			char buffer[sizeof(int)];
+			if(!in.read(buffer,sizeof(int)))
+				break;
+			cout << registros[i].nombre <<"-";
+			memcpy(ci.raw,buffer,sizeof(int));
+			cout << ci.num << endl;
+		}else{
+			if(registros[i].tipo=="Texto"){
+				char buffer[registros[i].tamano-1];
+				if(!in.read(buffer,registros[i].tamano-1))
+					break;
+				cout << registros[i].nombre << "-";
+				buffer[registros[i].tamano-1]='\0';
+				cout << buffer << endl;
+			}
+		}		
+		i++;
+	}
+	in.close();
+
+}
+void Borrar(){
+}
+void Modificar(){
+}
+void Buscar(){
+}
+void Compactar(){
+}
+
