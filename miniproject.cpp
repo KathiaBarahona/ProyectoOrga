@@ -47,7 +47,7 @@ int main(int argc, char* argv[]){
 		nbin = (char*)n.c_str();
 		strcat(nbin,".bin");//AGREGA LA EXTENSION .BIN
 		Header(nbin,registros);
-	 
+
 	}
 	int opcion2=0;
 	while(opcion2 != 7){
@@ -173,31 +173,58 @@ void Listar(const char* nbin, vector<Campo> registros){
 			char buffer[sizeof(int)];
 			if(!in.read(buffer,sizeof(int)))
 				break;
-			if(i==0)
-				cout << pos << ". ";
-			cout << registros[i].nombre <<"-";
-			memcpy(ci.raw,buffer,sizeof(int));
-			if(i != registros.size()-1){
-				cout << ci.num << ",";
+			if(buffer[0] == '*'){
+				int size = -1*sizeof(int);
+				for(int i=0;i < registros.size() ;i++){
+					if(registros[i].tipo =="Entero")
+						size += sizeof(int);
+					else
+						size = size + registros[i].tamano-1;
+				}
+				size = size + in.tellg();
+				in.seekg(size);
+				pos++;
 			}else{
-				cout << ci.num;
+				if(i==0)
+					cout << pos << ". ";
+				cout << registros[i].nombre <<"-";
+				memcpy(ci.raw,buffer,sizeof(int));
+				if(i != registros.size()-1){
+					cout << ci.num << ",";
+				}else{
+					cout << ci.num;
+				}
+				i++;	
 			}
-
 		}else{
 			char buffer[registros[i].tamano-1];
 			if(!in.read(buffer,registros[i].tamano-1))
 				break;
-			if(i==0)
-				cout << pos << ". ";
-			cout << registros[i].nombre << "-";
-			buffer[registros[i].tamano-1]='\0';
-			if(i != registros.size()-1){
-				cout << buffer << ",";
+			if(buffer[0] == '*'){
+				int size = -1*(registros[i].tamano-1);
+				for(int i=0;i < registros.size() ;i++){
+					if(registros[i].tipo =="Entero")
+						size += sizeof(int);
+					else
+						size = size + registros[i].tamano-1;
+				}				
+				size = size + in.tellg();
+				in.seekg(size);
+				pos++;
+
 			}else{
-				cout << buffer;
+				if(i==0)
+					cout << pos << ". ";
+				cout << registros[i].nombre << "-";
+				buffer[registros[i].tamano-1]='\0';
+				if(i != registros.size()-1){
+					cout << buffer << ",";
+				}else{
+					cout << buffer;
+				}
+				i++;
 			}
 		}
-		i++;
 	}	
 	in.close();	
 
