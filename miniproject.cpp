@@ -134,7 +134,24 @@ int getStructure(const char*nbin, vector<Campo>& registros){
 
 }//Donde se obtiene una estructura guardada previamente
 void Agregar(const char* nbin, vector<Campo> registros){
-	ofstream out(nbin, ios::out|ios::binary|ios::app);
+	fstream out (nbin, ios::in|ios::binary|ios::out);
+	charint availist;
+	out.seekg(4);
+	char b[sizeof(int)];
+	out.read(b,sizeof(int));
+	memcpy(availist.raw,b,sizeof(int));
+	if(availist.num != 0){
+		out.seekp(availist.num+1);
+		char c[sizeof(char)];
+		out.read(c,sizeof(char));
+		int x = (int)c[0];
+		x-=48;
+		out.seekp(4,ios::beg);
+		out.write(reinterpret_cast<char*>(&x),sizeof(int));
+		out.seekp(availist.num,ios::beg);
+	}else{
+		out.seekp(0,ios::end);
+	}
 	for(int i=0; i< registros.size();i++){
 		if(registros[i].tipo == "Entero"){
 			int value;
@@ -195,7 +212,7 @@ void Listar(const char* nbin, vector<Campo> registros){
 					cout << ci.num;
 				}
 				i++;	
-			}
+		 	}
 		}else{
 			char buffer[registros[i].tamano-1];
 			if(!in.read(buffer,registros[i].tamano-1))
@@ -239,15 +256,22 @@ void Borrar(const char* nbin, vector<Campo> registros){
 	rrn=rrn-1;
 	int os = offset(rrn, registros);
 	charint cbyte;
+	charint availlist;
 	fstream in(nbin,ios::in|ios::binary|ios::out);
 	char b[sizeof(int)];
 	in.read(b, sizeof(int));
 	memcpy(cbyte.raw,b,sizeof(int));
 	os=os+cbyte.num;
+	in.read(b, sizeof(int));
+	memcpy(availlist.raw,b, sizeof(int));
 	in.seekp(os);
 	in.write("*",1);
+	char av = (char)(availlist.num + 48);
+	in.put(av);
+	in.seekp(4);
+	in.write(reinterpret_cast<char*>(&os),sizeof(int));
 	in.close();
-}//Borra al agregar un * en el primer byte del registro
+}//Borra al agregar un * en el primer byte del registro y un caracter representando el offset del siguiente espacio disponible
 int offset(int rrn,vector<Campo> registros){
 	int size=0;
 	for(int i=0; i < registros.size() ; i++){
