@@ -18,7 +18,7 @@ void Agregar(const char*,vector<Campo>);
 void Listar(const char*, vector<Campo>);
 void Borrar(const char*, vector<Campo>);
 void Modificar(const char*,vector<Campo>);
-void Compactar(const char*,vector<Campo>);
+void Compactar(const char*,const char*,vector<Campo>);
 void Buscar(const char*, vector<Campo>);
 
 union charint{
@@ -66,7 +66,13 @@ int main(int argc, char* argv[]){
 			Borrar(nbin, registros);
 		}
 		if(opcion2==5){
-			Compactar(nbin, registros);
+			string x; 
+			char*nbin2;
+			cout << "Ingrese el nombre del nuevo archivo" << endl;
+			cin >> x;
+			nbin2 = (char*)x.c_str();
+            strcat(nbin2,".bin");
+			Compactar(nbin, nbin2, registros);
 		}
 		if(opcion2==6){
 			Modificar(nbin, registros);
@@ -279,7 +285,7 @@ int offset(int rrn,vector<Campo> registros){
 			size+=sizeof(int);
 		else
 			size = size + registros[i].tamano -1;
-	}
+	 }
 	return rrn*size;
 }
 void Modificar(const char* nbin, vector<Campo> registros){
@@ -312,7 +318,83 @@ void Modificar(const char* nbin, vector<Campo> registros){
 	in.close();
 }
 void Buscar(const char* nbin, vector<Campo> registros){
+	string dato;
+	cout << "Ingrese el dato a buscar" << endl;
+	cin >> dato;
+
 }
-void Compactar(const char* nbin, vector<Campo> registros){
+void Compactar(const char* nbin, const char* nbin2,vector<Campo> registros){
+	fstream in(nbin, ios::in|ios::binary);
+	ofstream out(nbin2, ios::out|ios::binary);
+	charint cbyte;
+	charint ci;
+	charint availlist;
+	int i=0;
+	char b[sizeof(int)];
+	in.read(b, sizeof(int));
+	memcpy(cbyte.raw,b,sizeof(int));
+	in.read(b, sizeof(int));
+	memcpy(availlist.raw,b,sizeof(int));
+	Campo c;
+	int bytes=0;
+	out.write(reinterpret_cast<char*>(&cbyte.num),sizeof(int));
+	out.write(reinterpret_cast<char*>(&availlist.num),sizeof(int));
+	while(bytes < cbyte.num-8){
+		if(!in.read(reinterpret_cast<char*>(&c),sizeof(Campo)))
+				break;
+		registros.push_back(c);
+		out.write(reinterpret_cast<char*>(&c),sizeof(Campo));
+		bytes+=sizeof(Campo);
+	}
+	in.seekg(cbyte.num);
+	while(true){
+		if(i==registros.size()){
+			i=0;
+		}
+		if(registros[i].tipo=="Entero"){
+			char buffer[sizeof(int)];
+			if(!in.read(buffer,sizeof(int)))
+				break;
+			if(buffer[0] == '*'){
+				int size = -1*sizeof(int);
+				for(int i=0;i < registros.size() ;i++){
+					if(registros[i].tipo =="Entero")
+						size += sizeof(int);
+					else
+						size = size + registros[i].tamano-1;
+				}
+				size = size + in.tellg();
+				in.seekg(size);
+			}else{
+				i++;
+				out.write(buffer,sizeof(int));
+		 	}
+		}else{
+			char buffer[registros[i].tamano-1];
+			if(!in.read(buffer,registros[i].tamano-1))
+				break;
+			if(buffer[0] == '*'){
+				int size = -1*(registros[i].tamano-1);
+				for(int i=0;i < registros.size() ;i++){
+					if(registros[i].tipo =="Entero")
+						size += sizeof(int);
+					else
+						size = size + registros[i].tamano-1;
+				}				
+				size = size + in.tellg();
+				in.seekg(size);
+
+			}else{
+				out.write(buffer, registros[i].tamano-1);	
+				i++;
+			}
+		}
+	}	
+
+   
+	out.close();	
+	in.close();	
+
+    
 }
 
