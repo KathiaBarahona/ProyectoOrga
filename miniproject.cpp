@@ -7,11 +7,13 @@
 #include<stdlib.h>
 using namespace std;
 struct Campo{
-	string nombre;
-	string tipo;
+	char nombre[15];
+	char tipo[7];
 	int tamano;
 };
-void Agregar(const char*, vector<Campo>);
+int getStructure(const char*, vector<Campo>&);
+void Header(const char*, vector<Campo>&);
+void Agregar(const char*,vector<Campo>);
 void Listar(const char*, vector<Campo>);
 void Borrar();
 void Modificar();
@@ -43,72 +45,24 @@ int main(int argc, char* argv[]){
 		string n;
 		cout << "Ingrese el nombre de la estructura" << endl;
 		cin >> n;
-		string x;
-		strcpy((char*)x.c_str(),(char*)n.c_str());
-		char* nestructura = (char*)n.c_str();
-		nbin = (char*)x.c_str();
-		strcat(nestructura, ".txt");
+		nbin = (char*)n.c_str();
 		strcat(nbin, ".bin");
-		ifstream archivo;
-		archivo.open(nestructura);
-		if(archivo!=NULL){
-			string line;
-			while(getline(archivo,line)){
-				vector<string> fields;
-				split (line,'-',fields);
-				Campo c;
-				c.nombre = fields[0];
-				c.tipo = fields[1];
-				c.tamano = atoi(fields[2].c_str());	
-				registros.push_back(c);
-			}
-			archivo.close();
-		}else{
-			cout<<"La estructura no existe!"<<endl;
-			return 0;
-		}
+		getStructure(nbin, registros);
+	
 	}else{
 		string n;
 		cout<<"Ingrese el nombre de la estructura"<<endl;
 		cin>>n;
-		string x;
-		strcpy((char*)x.c_str(),(char*)n.c_str());
-		char* nestructura = (char*)n.c_str();
-		nbin = (char*)x.c_str();
-		strcat(nestructura,".txt");//AGREGA LA EXTENSION .TXT
+		nbin = (char*)n.c_str();
 		strcat(nbin,".bin");//AGREGA LA EXTENSION .BIN
-		ofstream archivo;
-		archivo.open(nestructura);
-		char respuesta='s';
-		while(respuesta=='s'){
-			Campo c;
-			cout<<"Ingrese el nombre del Campo"<<endl;
-			cin >> c.nombre;
-			int type;
-			cout << "Seleccione el tipo del campo:\n1.Entero\n2.Texto"<<endl;
-			cin >> type;
-			if(type==1){
-				c.tipo="Entero";
-			}else{
-				c.tipo="Texto";
-				cout << "Ingrese la longitud del texto" << endl;
-				cin >> c.tamano;
-				if(c.tamano==1)
-					c.tamano=2;
-			}
-			registros.push_back(c);
-			archivo << c.nombre<< "-" << c.tipo << "-" << c.tamano << endl;
-			archivo.flush();
-			cout<<"Desea agregar mas campos?[s/n]"<<endl;
-			cin>>respuesta;
-		}
-		archivo.close();//Se guarda la estructura para ser utilizada en el futuro
+		Header(nbin,registros);
 	}
 	int opcion2=0;
 	while(opcion2 != 3){
 		cout << "1.Agregar Datos\n2.Listar Datos\n3.Salir" << endl;
 		cin >> opcion2;
 		if(opcion2==1){
+			cout << registros.size() << endl;
 			Agregar(nbin, registros);
 		}else{
 			if(opcion2==2){
@@ -119,6 +73,64 @@ int main(int argc, char* argv[]){
 
 	return 0;
 }
+void Header(const char* nbin, vector<Campo>& registros){
+	ofstream out(nbin, ios::out|ios::binary);
+	char delimitador = ';';
+	char resp = 's';
+	int cbytes=8;
+	int numcampos, tipo;
+	int availlist= 0;
+	cout << "Ingrese el numero de campos " << endl;
+	cin >> numcampos;
+	cbytes = cbytes + sizeof(Campo)*numcampos;
+	out.write(reinterpret_cast<char*>(&cbytes), sizeof(int));
+	out.write(reinterpret_cast<char*>(&availlist),sizeof(int));
+    for(int i=0; i  < numcampos ; i++){
+		Campo c;
+		cout << "Ingrese el nombre del campo" << endl;
+		cin >> c.nombre;
+		cout << "Seleccione el tipo: " << endl << "1.Entero" << endl << "2.Texto" << endl;
+		cin >> tipo;
+		if(tipo == 1){
+			string s = "Entero";
+			strcpy(c.tipo,s.c_str());
+		}else{
+			string s = "Texto";
+			strcpy(c.tipo,s.c_str());
+			cout << "Ingrese la longitud " << endl;
+			cin >> c.tamano;
+		}
+		out.write(reinterpret_cast<char*>(&c), sizeof(Campo));
+		registros.push_back(c);
+	}	
+	out.close();
+}//Es en donde el usuario define la estructura
+int getStructure(const char*nbin, vector<Campo>& registros){
+	ifstream in(nbin, ios::in|ios::binary);
+	charint ci;
+	charint availlist;
+	if(in){
+		char buffer[sizeof(int)];
+		in.read(buffer,sizeof(int));
+		memcpy(ci.raw,buffer,sizeof(int));
+		in.read(buffer,sizeof(int));
+	    memcpy(availlist.raw,buffer,sizeof(int));
+		Campo c;
+		int bytes=0;
+		ci.num=ci.num-8;
+		while(bytes < ci.num){
+			if(!in.read(reinterpret_cast<char*>(&c),sizeof(Campo)))
+				break;
+			registros.push_back(c);
+			bytes+=sizeof(Campo);
+		}
+		in.close();
+	}else{
+		cout << "No se pudo abrir el archivo" << endl;
+		return 0;
+	}
+
+}//Donde se obtiene una estructura guardada previamente
 void Agregar(const char* nbin, vector<Campo> registros){
 	ofstream out(nbin, ios::out|ios::binary|ios::app);
 	for(int i=0; i< registros.size();i++){
@@ -136,21 +148,29 @@ void Agregar(const char* nbin, vector<Campo> registros){
 	}
 	out.close();
 
-}
+}//Agrega los registros
 void Listar(const char* nbin, vector<Campo> registros){
+	charint cbyte;
 	charint ci;
+//	cout << registros.size() << endl;
 	int i=0;
 	ifstream in(nbin,ios::in|ios::binary);
+	char b[sizeof(int)];
+	in.read(b, sizeof(int));
+	memcpy(cbyte.raw,b,sizeof(int));
+	in.seekg(cbyte.num,ios::beg);
 	while(!in.eof()){
 		if(i==registros.size())
 			i=0;
 		if(registros[i].tipo=="Entero"){
+			cout << i;
 			char buffer[sizeof(int)];
 			if(!in.read(buffer,sizeof(int)))
 				break;
 			cout << registros[i].nombre <<"-";
 			memcpy(ci.raw,buffer,sizeof(int));
 			cout << ci.num << endl;
+		
 		}else{
 			if(registros[i].tipo=="Texto"){
 				char buffer[registros[i].tamano-1];
@@ -166,7 +186,12 @@ void Listar(const char* nbin, vector<Campo> registros){
 	in.close();
 
 }
-void Borrar(){
+void Borrar(const char* nbin, vector<Campo> registros){
+	Listar(nbin, registros);
+	int offset;
+	cout << "Ingrese el offset del registro a eliminar" << endl;
+	cin >> offset;
+	ofstream out(nbin,ios::out|ios::binary|ios::app);
 }
 void Modificar(){
 }
