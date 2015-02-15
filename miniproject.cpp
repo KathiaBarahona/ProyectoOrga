@@ -283,6 +283,33 @@ int offset(int rrn,vector<Campo> registros){
 	return rrn*size;
 }
 void Modificar(const char* nbin, vector<Campo> registros){
+	Listar(nbin, registros);
+	int rrn;
+	cout << "Ingrese el numero del registro " << endl;
+	cin >> rrn;
+	rrn=rrn-1;
+	int os = offset(rrn, registros);
+	charint cbyte;
+	fstream in(nbin,ios::in|ios::binary|ios::out);
+	char b[sizeof(int)];
+	in.read(b,sizeof(int));
+	memcpy(cbyte.raw,b,sizeof(int));
+	os+=cbyte.num;
+	in.seekp(os);
+	for(int i=0; i< registros.size();i++){
+		if(registros[i].tipo == "Entero"){
+			int value;
+			cout << "Ingrese " << registros[i].nombre << endl;
+			cin >> value;
+			in.write(reinterpret_cast<char*>(&value), sizeof(int));
+		}else{
+			char texto[registros[i].tamano];
+			cout << "Ingrese " << registros[i].nombre << endl;
+			cin >> texto;
+			in.write(texto,registros[i].tamano-1); 
+		}
+	}
+	in.close();
 }
 void Buscar(const char* nbin, vector<Campo> registros){
 }
