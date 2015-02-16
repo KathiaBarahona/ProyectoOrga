@@ -318,9 +318,82 @@ void Modificar(const char* nbin, vector<Campo> registros){
 	in.close();
 }
 void Buscar(const char* nbin, vector<Campo> registros){
-	string dato;
+	string data;
 	cout << "Ingrese el dato a buscar" << endl;
-	cin >> dato;
+	cin >> data;
+	ifstream in(nbin, ios::in|ios::binary);
+	charint cbyte;
+	charint ci;
+	//	cout << registros.size() << endl;
+	int i=0;
+	char b[sizeof(int)];
+	in.read(b, sizeof(int));
+	memcpy(cbyte.raw,b,sizeof(int));
+	in.seekg(cbyte.num,ios::beg);
+	//cout << cbyte.num << endl;
+	bool flag = false;
+	stringstream registro;
+	while(true){
+		if(i==registros.size()){
+		   if(flag)
+			   break;
+		   else
+			   registro.str("");	
+			i=0;
+		}
+		if(registros[i].tipo=="Entero"){
+			char buffer[sizeof(int)];
+			if(!in.read(buffer,sizeof(int)))
+				break;
+			if(buffer[0] == '*'){
+				int size = -1*sizeof(int);
+				for(int i=0;i < registros.size() ;i++){
+					if(registros[i].tipo =="Entero")
+						size += sizeof(int);
+					else
+						size = size + registros[i].tamano-1;
+				}
+				size = size + in.tellg();
+				in.seekg(size);
+			}else{
+				memcpy(ci.raw,buffer,sizeof(int));
+				stringstream ss;
+				ss >> ci.num;
+				if(data.compare(ss.str()))
+					flag = true;
+				registro <<  ci.num << ",";
+				i++;	
+		 	}
+		}else{
+			char buffer[registros[i].tamano-1];
+			if(!in.read(buffer,registros[i].tamano-1))
+				break;
+			if(buffer[0] == '*'){
+				int size = -1*(registros[i].tamano-1);
+				for(int i=0;i < registros.size() ;i++){
+					if(registros[i].tipo =="Entero")
+						size += sizeof(int);
+					else
+						size = size + registros[i].tamano-1;
+				}				
+				size = size + in.tellg();
+				in.seekg(size);
+
+			}else{
+				buffer[registros[i].tamano-1]='\0';
+				stringstream ss;
+				ss >> buffer;
+				if(data.compare(ss.str()))
+					flag=true;
+				registro << buffer << ",";
+				i++;
+			}
+		}
+	}
+	if(!flag)
+		cout << "No se encontró el archivo" << endl;
+	else
+		cout << registro.str() << endl;	
 
 }
 void Compactar(const char* nbin, const char* nbin2,vector<Campo> registros){
