@@ -417,7 +417,6 @@ void Compactar(const char* nbin, const char* nbin2,vector<Campo> registros){
 	while(bytes < cbyte.num-8){
 		if(!in.read(reinterpret_cast<char*>(&c),sizeof(Campo)))
 			break;
-		registros.push_back(c);
 		out.write(reinterpret_cast<char*>(&c),sizeof(Campo));
 		bytes+=sizeof(Campo);
 	}
