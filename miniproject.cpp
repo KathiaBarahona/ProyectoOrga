@@ -71,7 +71,7 @@ int main(int argc, char* argv[]){
 			cout << "Ingrese el nombre del nuevo archivo" << endl;
 			cin >> x;
 			nbin2 = (char*)x.c_str();
-            strcat(nbin2,".bin");
+			strcat(nbin2,".bin");
 			Compactar(nbin, nbin2, registros);
 		}
 		if(opcion2==6){
@@ -218,7 +218,7 @@ void Listar(const char* nbin, vector<Campo> registros){
 					cout << ci.num;
 				}
 				i++;	
-		 	}
+			}
 		}else{
 			char buffer[registros[i].tamano-1];
 			if(!in.read(buffer,registros[i].tamano-1))
@@ -285,7 +285,7 @@ int offset(int rrn,vector<Campo> registros){
 			size+=sizeof(int);
 		else
 			size = size + registros[i].tamano -1;
-	 }
+	}
 	return rrn*size;
 }
 void Modificar(const char* nbin, vector<Campo> registros){
@@ -335,10 +335,10 @@ void Buscar(const char* nbin, vector<Campo> registros){
 	stringstream registro;
 	while(true){
 		if(i==registros.size()){
-		   if(flag)
-			   break;
-		   else
-			   registro.str("");	
+			if(flag)
+				break;
+			else
+				registro.str("");	
 			i=0;
 		}
 		if(registros[i].tipo=="Entero"){
@@ -359,11 +359,11 @@ void Buscar(const char* nbin, vector<Campo> registros){
 				memcpy(ci.raw,buffer,sizeof(int));
 				stringstream ss;
 				ss >> ci.num;
-				if(data.compare(ss.str()))
+				if(data.compare(ss.str())==0)
 					flag = true;
 				registro <<  ci.num << ",";
 				i++;	
-		 	}
+			}
 		}else{
 			char buffer[registros[i].tamano-1];
 			if(!in.read(buffer,registros[i].tamano-1))
@@ -381,11 +381,12 @@ void Buscar(const char* nbin, vector<Campo> registros){
 
 			}else{
 				buffer[registros[i].tamano-1]='\0';
-				stringstream ss;
-				ss >> buffer;
-				if(data.compare(ss.str()))
+				string s;
+				memcpy ((char*)s.c_str(),buffer,registros[i].tamano-1);
+				if(data.compare(buffer)==0){
 					flag=true;
-				registro << buffer << ",";
+				}
+				registro << s << ",";
 				i++;
 			}
 		}
@@ -408,13 +409,14 @@ void Compactar(const char* nbin, const char* nbin2,vector<Campo> registros){
 	memcpy(cbyte.raw,b,sizeof(int));
 	in.read(b, sizeof(int));
 	memcpy(availlist.raw,b,sizeof(int));
+	int al=0;
 	Campo c;
 	int bytes=0;
 	out.write(reinterpret_cast<char*>(&cbyte.num),sizeof(int));
-	out.write(reinterpret_cast<char*>(&availlist.num),sizeof(int));
+	out.write(reinterpret_cast<char*>(&al),sizeof(int));
 	while(bytes < cbyte.num-8){
 		if(!in.read(reinterpret_cast<char*>(&c),sizeof(Campo)))
-				break;
+			break;
 		registros.push_back(c);
 		out.write(reinterpret_cast<char*>(&c),sizeof(Campo));
 		bytes+=sizeof(Campo);
@@ -441,7 +443,7 @@ void Compactar(const char* nbin, const char* nbin2,vector<Campo> registros){
 			}else{
 				i++;
 				out.write(buffer,sizeof(int));
-		 	}
+			}
 		}else{
 			char buffer[registros[i].tamano-1];
 			if(!in.read(buffer,registros[i].tamano-1))
@@ -464,10 +466,10 @@ void Compactar(const char* nbin, const char* nbin2,vector<Campo> registros){
 		}
 	}	
 
-   
+
 	out.close();	
 	in.close();	
 
-    
+
 }
 
