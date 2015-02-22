@@ -18,12 +18,16 @@ void Agregar(const char*,vector<Campo>);
 void Listar(const char*, vector<Campo>);
 void Borrar(const char*, vector<Campo>);
 void Modificar(const char*,vector<Campo>);
-void Compactar(const char*,const char*,vector<Campo>);
+void Compactar(const char*,vector<Campo>);
 void Buscar(const char*, vector<Campo>);
 
 union charint{
 	char raw[sizeof(int)];
 	int num;
+};
+union charlongint{
+	char raw[sizeof(long int)];
+	long int num;
 };
 int main(int argc, char* argv[]){
 	char*nbin;
@@ -66,13 +70,7 @@ int main(int argc, char* argv[]){
 			Borrar(nbin, registros);
 		}
 		if(opcion2==5){
-			string x; 
-			char*nbin2;
-			cout << "Ingrese el nombre del nuevo archivo" << endl;
-			cin >> x;
-			nbin2 = (char*)x.c_str();
-			strcat(nbin2,".bin");
-			Compactar(nbin, nbin2, registros);
+			Compactar(nbin, registros);
 		}
 		if(opcion2==6){
 			Modificar(nbin, registros);
@@ -83,17 +81,22 @@ int main(int argc, char* argv[]){
 void Header(const char* nbin, vector<Campo>& registros){
 	ofstream out(nbin, ios::out|ios::binary);
 	char resp = 's';
-	int cbytes=8;
+	int cbytes=2*sizeof(int) + sizeof(long int);
 	int numcampos, tipo;
 	int availlist= 0;
+	long int records =0;
 	cout << "Ingrese el numero de campos " << endl;
 	cin >> numcampos;
 	cbytes = cbytes + sizeof(Campo)*numcampos;
 	out.write(reinterpret_cast<char*>(&cbytes), sizeof(int));
 	out.write(reinterpret_cast<char*>(&availlist),sizeof(int));
+	out.write(reinterpret_cast<char*>(&records),sizeof(long int));
 	for(int i=0; i  < numcampos ; i++){
 		Campo c;
-		cout << "Ingrese el nombre del campo" << endl;
+		if(i==0)
+			cout << "Ingrese el nombre del campo llave" << endl;
+		else
+			cout << "Ingrese el nombre del campo" << endl;
 		cin >> c.nombre;
 		cout << "Seleccione el tipo: " << endl << "1.Entero" << endl << "2.Texto" << endl;
 		cin >> tipo;
@@ -117,15 +120,19 @@ int getStructure(const char*nbin, vector<Campo>& registros){
 	ifstream in(nbin, ios::in|ios::binary);
 	charint ci;
 	charint availlist;
+	charlongint records;
 	if(in){
 		char buffer[sizeof(int)];
 		in.read(buffer,sizeof(int));
 		memcpy(ci.raw,buffer,sizeof(int));
 		in.read(buffer,sizeof(int));
 		memcpy(availlist.raw,buffer,sizeof(int));
+		char b[sizeof(long int)];
+		in.read(b,sizeof(long int));
+		memcpy(records.raw,b,sizeof(long int));
 		Campo c;
 		int bytes=0;
-		ci.num=ci.num-8;
+		ci.num=ci.num-2*sizeof(int) - sizeof(long int);
 		while(bytes < ci.num){
 			if(!in.read(reinterpret_cast<char*>(&c),sizeof(Campo)))
 				break;
@@ -142,10 +149,15 @@ int getStructure(const char*nbin, vector<Campo>& registros){
 void Agregar(const char* nbin, vector<Campo> registros){
 	fstream out (nbin, ios::in|ios::binary|ios::out);
 	charint availist;
+	charlongint records;
 	out.seekg(4);
 	char b[sizeof(int)];
 	out.read(b,sizeof(int));
 	memcpy(availist.raw,b,sizeof(int));
+	out.seekg(8);
+	char d[sizeof(long int)];
+	out.read(d,sizeof(long int));
+	memcpy(records.raw,d,sizeof(long int));
 	if(availist.num != 0){
 		out.seekp(availist.num+1);
 		char c[sizeof(char)];
@@ -159,7 +171,8 @@ void Agregar(const char* nbin, vector<Campo> registros){
 		out.seekp(0,ios::end);
 	}
 	for(int i=0; i< registros.size();i++){
-		if(registros[i].tipo == "Entero"){
+		string tipo(registros[i].tipo);
+		if(tipo.compare("Entero")==0){
 			int value;
 			cout << "Ingrese " << registros[i].nombre << endl;
 			cin >> value;
@@ -171,6 +184,9 @@ void Agregar(const char* nbin, vector<Campo> registros){
 			out.write(texto,registros[i].tamano-1); 
 		}
 	}
+	records.num++;
+	out.seekp(8,ios::beg);
+	out.write(reinterpret_cast<char*>(&records.num),sizeof(int));
 	out.close();
 
 }//Agrega los registros
@@ -185,21 +201,23 @@ void Listar(const char* nbin, vector<Campo> registros){
 	memcpy(cbyte.raw,b,sizeof(int));
 	in.seekg(cbyte.num,ios::beg);
 	//cout << cbyte.num << endl;
-	int pos=1;
+	long int pos=1;
 	while(true){
 		if(i==registros.size()){
 			cout << endl;
 			i=0;
 			pos++;
 		}
-		if(registros[i].tipo=="Entero"){
+		string d(registros[i].tipo);
+		if(d.compare("Entero")==0){
 			char buffer[sizeof(int)];
 			if(!in.read(buffer,sizeof(int)))
 				break;
 			if(buffer[0] == '*'){
 				int size = -1*sizeof(int);
 				for(int i=0;i < registros.size() ;i++){
-					if(registros[i].tipo =="Entero")
+					string tipo(registros[i].tipo);
+					if(tipo.compare("Entero")==0)
 						size += sizeof(int);
 					else
 						size = size + registros[i].tamano-1;
@@ -217,7 +235,8 @@ void Listar(const char* nbin, vector<Campo> registros){
 				}else{
 					cout << ci.num;
 				}
-				i++;	
+				i++;
+					
 			}
 		}else{
 			char buffer[registros[i].tamano-1];
@@ -263,6 +282,7 @@ void Borrar(const char* nbin, vector<Campo> registros){
 	int os = offset(rrn, registros);
 	charint cbyte;
 	charint availlist;
+	charlongint records;
 	fstream in(nbin,ios::in|ios::binary|ios::out);
 	char b[sizeof(int)];
 	in.read(b, sizeof(int));
@@ -270,12 +290,18 @@ void Borrar(const char* nbin, vector<Campo> registros){
 	os=os+cbyte.num;
 	in.read(b, sizeof(int));
 	memcpy(availlist.raw,b, sizeof(int));
+	char d[sizeof(long int)];
+	in.read(d, sizeof(long int));
+	memcpy(records.raw,d,sizeof(long int));
+	records.num++;
 	in.seekp(os);
 	in.write("*",1);
 	char av = (char)(availlist.num + 48);
 	in.put(av);
 	in.seekp(4);
 	in.write(reinterpret_cast<char*>(&os),sizeof(int));
+	in.seekp(8);
+	in.write(reinterpret_cast<char*>(&records.num),sizeof(long int));
 	in.close();
 }//Borra al agregar un * en el primer byte del registro y un caracter representando el offset del siguiente espacio disponible
 int offset(int rrn,vector<Campo> registros){
@@ -397,9 +423,9 @@ void Buscar(const char* nbin, vector<Campo> registros){
 		cout << registro.str() << endl;	
 
 }
-void Compactar(const char* nbin, const char* nbin2,vector<Campo> registros){
+void Compactar(const char* nbin,vector<Campo> registros){
 	fstream in(nbin, ios::in|ios::binary);
-	ofstream out(nbin2, ios::out|ios::binary);
+	ofstream out("temporal.bin", ios::out|ios::binary);
 	charint cbyte;
 	charint ci;
 	charint availlist;
@@ -465,9 +491,10 @@ void Compactar(const char* nbin, const char* nbin2,vector<Campo> registros){
 		}
 	}	
 
-
-	out.close();	
-	in.close();	
+	in.close();
+	remove(nbin);
+	out.close();
+	rename("temporal.bin",nbin);		
 
 
 }
