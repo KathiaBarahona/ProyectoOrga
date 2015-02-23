@@ -53,6 +53,8 @@ int main(int argc, char* argv[]){
 		Header(nbin,registros);
 
 	}
+	for(int i=0;i<registros.size();i++)
+		cout << registros[i].nombre << "," << registros[i].tipo << "," <<registros[i].tamano<<endl;
 	int opcion2=0;
 	while(opcion2 != 7){
 		cout << "1.Agregar Datos\n2.Listar Datos\n3.Buscar Registro\n4.Borrar\n5.Compactar\n6.Modificar\n7.Salir" << endl;
@@ -81,10 +83,10 @@ int main(int argc, char* argv[]){
 void Header(const char* nbin, vector<Campo>& registros){
 	ofstream out(nbin, ios::out|ios::binary);
 	char resp = 's';
-	int cbytes=2*sizeof(int) + sizeof(long int);
+	int cbytes = 2*sizeof(int) + sizeof(long int);
 	int numcampos, tipo;
+	long int records = 0;
 	int availlist= 0;
-	long int records =0;
 	cout << "Ingrese el numero de campos " << endl;
 	cin >> numcampos;
 	cbytes = cbytes + sizeof(Campo)*numcampos;
@@ -93,10 +95,7 @@ void Header(const char* nbin, vector<Campo>& registros){
 	out.write(reinterpret_cast<char*>(&records),sizeof(long int));
 	for(int i=0; i  < numcampos ; i++){
 		Campo c;
-		if(i==0)
-			cout << "Ingrese el nombre del campo llave" << endl;
-		else
-			cout << "Ingrese el nombre del campo" << endl;
+		cout << "Ingrese el nombre del campo" << endl;
 		cin >> c.nombre;
 		cout << "Seleccione el tipo: " << endl << "1.Entero" << endl << "2.Texto" << endl;
 		cin >> tipo;
@@ -132,7 +131,7 @@ int getStructure(const char*nbin, vector<Campo>& registros){
 		memcpy(records.raw,b,sizeof(long int));
 		Campo c;
 		int bytes=0;
-		ci.num=ci.num-2*sizeof(int) - sizeof(long int);
+		ci.num=ci.num-2*sizeof(int)-sizeof(long int);
 		while(bytes < ci.num){
 			if(!in.read(reinterpret_cast<char*>(&c),sizeof(Campo)))
 				break;
@@ -152,12 +151,11 @@ void Agregar(const char* nbin, vector<Campo> registros){
 	charlongint records;
 	out.seekg(4);
 	char b[sizeof(int)];
-	out.read(b,sizeof(int));
+	out.read(b, sizeof(int));
 	memcpy(availist.raw,b,sizeof(int));
-	out.seekg(8);
-	char d[sizeof(long int)];
-	out.read(d,sizeof(long int));
-	memcpy(records.raw,d,sizeof(long int));
+	char m[sizeof(long int)];
+	out.read(m, sizeof(long int));
+	memcpy(records.raw, m, sizeof(long int));
 	if(availist.num != 0){
 		out.seekp(availist.num+1);
 		char c[sizeof(char)];
@@ -171,8 +169,7 @@ void Agregar(const char* nbin, vector<Campo> registros){
 		out.seekp(0,ios::end);
 	}
 	for(int i=0; i< registros.size();i++){
-		string tipo(registros[i].tipo);
-		if(tipo.compare("Entero")==0){
+		if(registros[i].tipo == "Entero"){
 			int value;
 			cout << "Ingrese " << registros[i].nombre << endl;
 			cin >> value;
@@ -184,9 +181,9 @@ void Agregar(const char* nbin, vector<Campo> registros){
 			out.write(texto,registros[i].tamano-1); 
 		}
 	}
-	records.num++;
+	records.num +=1;
 	out.seekp(8,ios::beg);
-	out.write(reinterpret_cast<char*>(&records.num),sizeof(int));
+	out.write(reinterpret_cast<char*>(&records.num),sizeof(long int));
 	out.close();
 
 }//Agrega los registros
@@ -201,23 +198,21 @@ void Listar(const char* nbin, vector<Campo> registros){
 	memcpy(cbyte.raw,b,sizeof(int));
 	in.seekg(cbyte.num,ios::beg);
 	//cout << cbyte.num << endl;
-	long int pos=1;
+	int pos=1;
 	while(true){
 		if(i==registros.size()){
 			cout << endl;
 			i=0;
 			pos++;
 		}
-		string d(registros[i].tipo);
-		if(d.compare("Entero")==0){
+		if(registros[i].tipo=="Entero"){
 			char buffer[sizeof(int)];
 			if(!in.read(buffer,sizeof(int)))
 				break;
 			if(buffer[0] == '*'){
 				int size = -1*sizeof(int);
 				for(int i=0;i < registros.size() ;i++){
-					string tipo(registros[i].tipo);
-					if(tipo.compare("Entero")==0)
+					if(registros[i].tipo =="Entero")
 						size += sizeof(int);
 					else
 						size = size + registros[i].tamano-1;
@@ -235,8 +230,7 @@ void Listar(const char* nbin, vector<Campo> registros){
 				}else{
 					cout << ci.num;
 				}
-				i++;
-					
+				i++;	
 			}
 		}else{
 			char buffer[registros[i].tamano-1];
@@ -284,16 +278,16 @@ void Borrar(const char* nbin, vector<Campo> registros){
 	charint availlist;
 	charlongint records;
 	fstream in(nbin,ios::in|ios::binary|ios::out);
+	char m[sizeof(long int)];//agregado
 	char b[sizeof(int)];
 	in.read(b, sizeof(int));
 	memcpy(cbyte.raw,b,sizeof(int));
 	os=os+cbyte.num;
 	in.read(b, sizeof(int));
 	memcpy(availlist.raw,b, sizeof(int));
-	char d[sizeof(long int)];
-	in.read(d, sizeof(long int));
-	memcpy(records.raw,d,sizeof(long int));
-	records.num++;
+	in.read(m, sizeof(long int));//agregado
+	memcpy(records.raw,m, sizeof(long int));//agregado
+	records.num-=1;//agregado
 	in.seekp(os);
 	in.write("*",1);
 	char av = (char)(availlist.num + 48);
@@ -301,7 +295,7 @@ void Borrar(const char* nbin, vector<Campo> registros){
 	in.seekp(4);
 	in.write(reinterpret_cast<char*>(&os),sizeof(int));
 	in.seekp(8);
-	in.write(reinterpret_cast<char*>(&records.num),sizeof(long int));
+	in.write(reinterpret_cast<char*>(&records.num),sizeof(long int));//agregado
 	in.close();
 }//Borra al agregar un * en el primer byte del registro y un caracter representando el offset del siguiente espacio disponible
 int offset(int rrn,vector<Campo> registros){
@@ -347,11 +341,11 @@ void Buscar(const char* nbin, vector<Campo> registros){
 	string data;
 	cout << "Ingrese el dato a buscar" << endl;
 	cin >> data;
-	ifstream in(nbin, ios::in|ios::binary);
 	charint cbyte;
 	charint ci;
 	//	cout << registros.size() << endl;
 	int i=0;
+	ifstream in(nbin,ios::in|ios::binary);
 	char b[sizeof(int)];
 	in.read(b, sizeof(int));
 	memcpy(cbyte.raw,b,sizeof(int));
@@ -362,9 +356,8 @@ void Buscar(const char* nbin, vector<Campo> registros){
 	while(true){
 		if(i==registros.size()){
 			if(flag)
-				break;
-			else
-				registro.str("");	
+			  break;
+			registro.str("");
 			i=0;
 		}
 		if(registros[i].tipo=="Entero"){
@@ -383,11 +376,12 @@ void Buscar(const char* nbin, vector<Campo> registros){
 				in.seekg(size);
 			}else{
 				memcpy(ci.raw,buffer,sizeof(int));
-				stringstream ss;
-				ss >> ci.num;
-				if(data.compare(ss.str())==0)
-					flag = true;
-				registro <<  ci.num << ",";
+				stringstream s;
+				s << ci.num;
+				if(s.str().compare(data)==0){
+					flag=true;
+				}
+				registro << s.str() << ",";
 				i++;	
 			}
 		}else{
@@ -407,9 +401,8 @@ void Buscar(const char* nbin, vector<Campo> registros){
 
 			}else{
 				buffer[registros[i].tamano-1]='\0';
-				string s;
-				memcpy ((char*)s.c_str(),buffer,registros[i].tamano-1);
-				if(data.compare(buffer)==0){
+				string s(buffer);
+				if(s.compare(data)==0){
 					flag=true;
 				}
 				registro << s << ",";
@@ -417,10 +410,11 @@ void Buscar(const char* nbin, vector<Campo> registros){
 			}
 		}
 	}
-	if(!flag)
-		cout << "No se encontró el archivo" << endl;
+	if(flag)
+		cout << registro.str() << endl;
 	else
-		cout << registro.str() << endl;	
+		cout << "No se encontro el registro" << endl;	
+	in.close();	
 
 }
 void Compactar(const char* nbin,vector<Campo> registros){
@@ -491,11 +485,9 @@ void Compactar(const char* nbin,vector<Campo> registros){
 		}
 	}	
 
+
+	out.close();	
 	in.close();
 	remove(nbin);
-	out.close();
-	rename("temporal.bin",nbin);		
-
-
+	rename("temporal.bin",nbin);
 }
-
