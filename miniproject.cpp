@@ -27,7 +27,8 @@ int Menu(bool&,const char*, vector<Campo>&,vector<Indice>&);
 void Header(const char*, vector<Campo>&);
 void Agregar(const char*,vector<Campo>,vector<Indice>&,bool);
 void Listar(const char*, vector<Campo>);
-void Borrar(const char*, vector<Campo>,bool);
+void ILListar(const char*, vector<Indice>, vector<Campo>);
+void Borrar(const char*, vector<Campo>,bool,vector<Indice>&);
 void Modificar(const char*,vector<Campo>,bool);
 void Compactar(const char*,vector<Campo>);
 void Buscar(const char*, vector<Campo>);
@@ -228,27 +229,19 @@ void leerindices(const char*nind, vector<Indice>&indices,Campo c){
 	in.close();
 }
 
-void deletekey(vector<Indice>&indices,string Key, Campo c){
-	string tipo(c.tipo);
-	if(tipo.compare("Entero")==0){
+void deletekey(vector<Indice>&indices,int offset){
 		int first = 1;
 		int last = indices.size();
 		while(first <= last){
 			int midpoint = (int)((first+last)/2);
-			if(indices[midpoint].Key != ""){
-				if(atoi(indices[midpoint].Key.c_str()) == atoi(Key.c_str())){
-					indices[midpoint].Key = "";
-				}else if(atoi(indices[midpoint].Key.c_str()) < atoi(Key.c_str())){
-					first = first + 1;
-				}else
-					last = last -1;
-			}else{
+			if(indices[midpoint].offset == offset){
+				indices[midpoint].Key = "";
+				break;
+			}else if(indices[midpoint].offset < offset){
 				first = first + 1;
-			}
-		}
-	}else{
-	}
-
+			}else
+				last = last -1;			
+		}	
 }
 int Menu(bool& flag,const char* nbin, vector<Campo>&registros, vector<Indice>&indices){
 	if(!flag){
@@ -262,12 +255,16 @@ int Menu(bool& flag,const char* nbin, vector<Campo>&registros, vector<Indice>&in
 	cin >> opcion;
 	if(opcion==1)
 		Agregar(nbin,registros,indices,flag);
-	if(opcion==2)
-		Listar(nbin, registros);
+	if(opcion==2){
+		if(flag)
+			ILListar(nbin, indices, registros);
+		else
+			Listar(nbin, registros);
+	}
 	if(opcion==3)
 		Buscar(nbin,registros);
 	if(opcion==4)
-		Borrar(nbin,registros,flag);
+		Borrar(nbin,registros,flag,indices);
 	if(opcion==5)
 		Compactar(nbin,registros);
 	if(opcion==6)
@@ -410,6 +407,32 @@ void Agregar(const char* nbin, vector<Campo> registros, vector<Indice>& indices,
 	out.close();
 
 }//Agrega los registros
+void ILListar(const char*nbin, vector<Indice>indices, vector<Campo>campos){
+	ifstream in(nbin, ios::in|ios::binary);
+	for(int i=0; i< indices.size(); i++){
+		if(indices[i].Key != ""){
+			cout <<i+1<<".";
+			in.seekg(indices[i].offset,ios::beg);
+			for(int j=0;j<campos.size(); j++){
+				string tipo(campos[j].tipo);
+				if(tipo.compare("Entero")==0){
+					charint ci;
+					char buffer[sizeof(int)];
+			    	in.read(buffer,sizeof(int));
+					memcpy(ci.raw,buffer,sizeof(int));
+					cout << ci.num << ",";
+				}else{
+					char buffer[sizeof(campos[j].tamano-1)];
+					in.read(buffer,campos[j].tamano-1);
+					buffer[campos[j].tamano-1]='\0';
+					cout << buffer <<",";
+				}
+			}
+     		cout << endl;
+		}
+	}
+}
+
 void Listar(const char* nbin, vector<Campo> registros){
 	charint cbyte;
 	charint ci;
@@ -493,7 +516,7 @@ void Listar(const char* nbin, vector<Campo> registros){
 }//Lista los registros
 
 
-void Borrar(const char* nbin, vector<Campo> registros, bool flag){
+void Borrar(const char* nbin, vector<Campo> registros, bool flag, vector<Indice>& indices){
 	Listar(nbin, registros);
 	int rrn;
 	cout << "Ingrese el numero del registro a eliminar" << endl;
@@ -515,6 +538,8 @@ void Borrar(const char* nbin, vector<Campo> registros, bool flag){
 	memcpy(records.raw,m, sizeof(long int));//agregado
 	records.num-=1;//agregado
 	in.seekp(os);
+	if (flag)
+		deletekey(indices,os);
 	char p = '*';
 	in.write(reinterpret_cast<char*>(&p),sizeof(char));
 	char av = (char)(availlist.num + 48);
