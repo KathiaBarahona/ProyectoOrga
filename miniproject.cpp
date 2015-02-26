@@ -29,10 +29,11 @@ void Agregar(const char*,vector<Campo>,vector<Indice>&,bool);
 void Listar(const char*, vector<Campo>);
 void ILListar(const char*, vector<Indice>, vector<Campo>);
 void Borrar(const char*, vector<Campo>,bool,vector<Indice>&);
-void Modificar(const char*,vector<Campo>,bool);
+void Modificar(const char*,vector<Campo>);
 void Compactar(const char*,vector<Campo>);
 void Buscar(const char*, vector<Campo>);
 void guardarindices(const char*, vector<Indice>&,Campo);
+void ILModificar(const char*,vector<Campo>,vector<Indice>&);
 union charint{
 	char raw[sizeof(int)];
 	int num;
@@ -128,7 +129,7 @@ void Reindexar(const char* nbin,vector<Indice>&indices, vector<Campo> registros)
 		i.offset = os;
 		rrn++;
 		indices.push_back(i);
-	//	BinaryInsertion(indices,registros[0]);
+		BinaryInsertion(indices,registros[0]);
 	}
 	in.close();	
 }
@@ -267,8 +268,12 @@ int Menu(bool& flag,const char* nbin, vector<Campo>&registros, vector<Indice>&in
 		Borrar(nbin,registros,flag,indices);
 	if(opcion==5)
 		Compactar(nbin,registros);
-	if(opcion==6)
-		Modificar(nbin,registros,flag);
+	if(opcion==6){
+		if(flag)
+			ILModificar(nbin,registros,indices);
+		else
+			Modificar(nbin,registros);
+	}
 	if(opcion==7){
 		if(flag)
 			flag=false;
@@ -561,7 +566,40 @@ int offset(int rrn,vector<Campo> registros){
 	}
 	return rrn*size;
 }
-void Modificar(const char* nbin, vector<Campo> registros, bool flag){
+void ILModificar(const char*nbin,vector<Campo> registros,vector<Indice>& indices){
+	ILListar(nbin,indices,registros);
+	fstream out(nbin, ios::out|ios::binary|ios::in);
+	int posicion;
+	cout << "Ingrese el numero del registro" << endl;
+	cin >> posicion;
+	posicion--;
+	out.seekp(indices[posicion].offset,ios::beg);
+	for(int i=0;i<registros.size();i++){
+		string tipo(registros[i].tipo);
+		if(tipo.compare("Entero")==0){
+			int value;
+			cout << "Ingrese "<< registros[i].nombre << endl;
+			cin >> value;
+			if(i==0){
+				stringstream ss;
+				ss << value;
+				indices[posicion].Key = ss.str();
+			}
+			out.write(reinterpret_cast<char*>(&value),sizeof(int));
+		}else{
+			char dato[registros[i].tamano];
+			cout << "Ingrese " << registros[i].nombre << endl;
+			cin >> dato;
+			if(i==0){
+				string s(dato);
+				indices[posicion].Key = s;
+			}
+			out.write(dato,registros[i].tamano-1);
+		}
+	}
+	out.close();	
+}
+void Modificar(const char* nbin, vector<Campo> registros){
 	Listar(nbin, registros);
 	int rrn;
 	cout << "Ingrese el numero del registro " << endl;
@@ -583,7 +621,7 @@ void Modificar(const char* nbin, vector<Campo> registros, bool flag){
 			cin >> value;
 			if(i==0)
 				in.seekp(os);
-			in.write(reinterpret_cast<char*>(&value), sizeof(int));//no modifica!
+			in.write(reinterpret_cast<char*>(&value), sizeof(int));
 
 		}else{
 			char texto[registros[i].tamano];
