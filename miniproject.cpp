@@ -5,6 +5,7 @@
 #include<cstring>
 #include<stdio.h>
 #include<stdlib.h>
+#include<map>
 using namespace std;
 struct Campo{
 	char nombre[15];
@@ -15,25 +16,23 @@ struct Indice{
 	string Key;
 	int offset;
 };
-int updateKey(vector<Indice>indices, int offset);
-void deletekey(vector<Indice>&,string, Campo);
+int Menu(bool&,const char*, vector<Campo>&, map<string,int>&);
+int updateKey(map<string,int>&, int offset);
 int offset(int,vector<Campo>);
 void headerindices(const char*);
-void BinaryInsertion(vector<Indice>&,Campo);
-void Reindexar(const char*,vector<Indice>&, vector<Campo>);
-void leerindices(const char*, vector<Indice>&, Campo);
+void Reindexar(const char*,map<string,int>&, vector<Campo>);
+void leerindices(const char*, map<string,int>&, Campo);
 int getStructure(const char*, vector<Campo>&);
-int Menu(bool&,const char*, vector<Campo>&,vector<Indice>&);
 void Header(const char*, vector<Campo>&);
-void Agregar(const char*,vector<Campo>,vector<Indice>&,bool);
+void Agregar(const char*,vector<Campo>,map<string,int>&,bool);
 void Listar(const char*, vector<Campo>);
-void ILListar(const char*, vector<Indice>, vector<Campo>);
-void Borrar(const char*, vector<Campo>,bool,vector<Indice>&);
+void ILListar(const char*, map<string,int>, vector<Campo>);
+void Borrar(const char*, vector<Campo>,bool,map<string,int>&);
 void Modificar(const char*,vector<Campo>);
 void Compactar(const char*,vector<Campo>);
 void Buscar(const char*, vector<Campo>);
-void guardarindices(const char*, vector<Indice>&,Campo);
-void ILModificar(const char*,vector<Campo>,vector<Indice>&);
+void guardarindices(const char*, map<string,int>&,Campo);
+void ILModificar(const char*,vector<Campo>,map<string,int>&);
 union charint{
 	char raw[sizeof(int)];
 	int num;
@@ -47,7 +46,7 @@ int main(int argc, char* argv[]){
 	char*nind;
 	string n;
 	vector<Campo> registros;
-	vector<Indice> indices;
+	map<string,int> indices;
 	cout<<"Bienvenido"<<endl;
 	int opcion;
 	cout<<"1.Abrir una Estructura\n2.Crear una Nueva Estructura"<<endl;
@@ -64,11 +63,10 @@ int main(int argc, char* argv[]){
 		if(getStructure(nbin, registros)==0)
 			return 0;
 		//leerindices(nind, indices,registros[0]);
-
 	}else{
 		cout<<"Ingrese el nombre de la estructura"<<endl;
 		cin>>n;
-		string s;
+		string s;			
 		strcpy((char*)s.c_str(),(const char*)n.c_str());		
 		nind = (char*)s.c_str();
 		nbin = (char*)n.c_str();
@@ -84,10 +82,9 @@ int main(int argc, char* argv[]){
 	guardarindices(nind,indices,registros[0]);
 	return 0;
 }
-void Reindexar(const char* nbin,vector<Indice>&indices, vector<Campo> registros){
+void Reindexar(const char* nbin,map<string,int>&indices, vector<Campo> registros){
 	charint cbyte;
 	charint ci;
-	//	cout << registros.size() << endl;
 	int i=0;
 	ifstream in(nbin,ios::in|ios::binary);
 	char b[sizeof(int)];
@@ -103,8 +100,8 @@ void Reindexar(const char* nbin,vector<Indice>&indices, vector<Campo> registros)
 		if(!in.read(&p,sizeof(char)))
 			break;
 		if(p != '*'){
-			in.seekg(os);
-			string tipo(registros[0].tipo);
+			in.seekg(os+sizeof(char));
+			string tipo(registros[1].tipo);
 			if(tipo.compare("Entero")==0){
 				char buffer[sizeof(int)];
 				if(!in.read(buffer,sizeof(int)))
@@ -115,60 +112,21 @@ void Reindexar(const char* nbin,vector<Indice>&indices, vector<Campo> registros)
 				ss << ci.num;
 				i.Key = ss.str();
 			}else{
-				char buffer[registros[0].tamano-1];
-				if(!in.read(buffer, registros[0].tamano-1))
+				char buffer[registros[1].tamano-1];
+				if(!in.read(buffer, registros[1].tamano-1))
 					break;
-				buffer[registros[0].tamano-1]='\0';
+				buffer[registros[1].tamano-1]='\0';
 				string k(buffer);
 				//cout << buffer << endl;
-				i.Key =k;
+				i.Key = k;
 			}
-		}else{
-			i.Key = "";
+		   i.offset = os;
+		   indices.insert(pair<string,int>(i.Key,i.offset));
+	      
 		}
-		i.offset = os;
 		rrn++;
-		indices.push_back(i);
-		BinaryInsertion(indices,registros[0]);
 	}
 	in.close();	
-}
-void BinaryInsertion(vector<Indice>&indices,Campo c){
-	string p(c.tipo);
-	if(p.compare("Entero")==0){
-		for(int i = 1; i < indices.size() ; i++){
-			Indice auxiliar = indices[i];
-			int first = 0;
-			int last = i-1;
-			while(first <= last){
-				int middle = (int) ((first + last)/2);
-				if(atoi(auxiliar.Key.c_str()) <= atoi(indices[middle].Key.c_str()))
-					last = middle-1;
-				else
-					first = middle+1;
-			}
-			for(int k = i-1; k>=first; k--){
-				indices[k+1]=indices[k];
-			}//Se corren los demas elementos a la derecha
-			indices[first] = auxiliar;
-		}
-	}else{
-	}//cuando el tipo es texto (duda)
-
-}
-int updateKey(vector<Indice>indices, int offset){
-		int first = 1;
-		int last = indices.size();
-		while(first <= last){
-			int midpoint = (int)((first+last)/2);
-			if(indices[midpoint].offset == offset){
-				return midpoint;
-			}else if(indices[midpoint].offset < offset){
-				first = first + 1;
-			}else
-				last = last -1;			
-		}	
-		return -1;
 }
 void headerindices(const char* nind){
 	int seguro=0;
@@ -176,19 +134,19 @@ void headerindices(const char* nind){
 	out.write(reinterpret_cast<char*>(&seguro),sizeof(int));
 	out.close();
 }
-void guardarindices(const char*nind, vector<Indice>&indices,Campo c){
+void guardarindices(const char*nind, map<string,int>&indices,Campo c){
 	ofstream out(nind, ios::in|ios::binary);
 	out.seekp(4,ios::beg);
-	for(int i=0;i<indices.size();i++){
+	for(map<string,int>::iterator it = indices.begin(); it != indices.end(); ++it){     
 		string p(c.tipo);
 		if(p.compare("Entero")==0){
-			int value = atoi(indices[i].Key.c_str());
+			int value = atoi((it->first).c_str());
 			out.write(reinterpret_cast<char*>(&value),sizeof(int));
+		}else{
+			out.write((it->first).c_str(),c.tamano-1);
 		}
-		else{
-			out.write(indices[i].Key.c_str(),c.tamano-1);
-		}
-		out.write(reinterpret_cast<char*>(&indices[i].offset),sizeof(int));
+		int off = it->second;
+		out.write(reinterpret_cast<char*>(&off),sizeof(int));
 	}
 	int seguro=1;
 	out.seekp(0,ios::beg);
@@ -196,7 +154,7 @@ void guardarindices(const char*nind, vector<Indice>&indices,Campo c){
 	out.flush();
 	out.close();
 }
-void leerindices(const char*nind, vector<Indice>&indices,Campo c){
+void leerindices(const char*nind, map<string,int>&indices,Campo c){
 	ifstream in(nind, ios::in|ios::binary);
 	charint seguro;
 	charint value;
@@ -225,26 +183,11 @@ void leerindices(const char*nind, vector<Indice>&indices,Campo c){
 			break;
 		memcpy(value.raw,buffer,sizeof(int));
 		i.offset = value.num;
-		indices.push_back(i);
+		indices.insert(pair<string,int>(i.Key,i.offset));
 	}
 	in.close();
 }
-
-void deletekey(vector<Indice>&indices,int offset){
-		int first = 1;
-		int last = indices.size();
-		while(first <= last){
-			int midpoint = (int)((first+last)/2);
-			if(indices[midpoint].offset == offset){
-				indices[midpoint].Key = "";
-				break;
-			}else if(indices[midpoint].offset < offset){
-				first = first + 1;
-			}else
-				last = last -1;			
-		}	
-}
-int Menu(bool& flag,const char* nbin, vector<Campo>&registros, vector<Indice>&indices){
+int Menu(bool& flag,const char* nbin, vector<Campo>&registros, map<string,int>&indices){
 	if(!flag){
 		cout << "1.Agregar Datos\n2.Listar Datos\n3.Buscar Registro\n4.Borrar\n5.Compactar\n6.Modificar\n7.Activar Indice Lineal" 
 			<<"\n8.Salir"<< endl;
@@ -257,9 +200,9 @@ int Menu(bool& flag,const char* nbin, vector<Campo>&registros, vector<Indice>&in
 	if(opcion==1)
 		Agregar(nbin,registros,indices,flag);
 	if(opcion==2){
-		if(flag)
+		if(flag){
 			ILListar(nbin, indices, registros);
-		else
+		}else
 			Listar(nbin, registros);
 	}
 	if(opcion==3)
@@ -269,9 +212,9 @@ int Menu(bool& flag,const char* nbin, vector<Campo>&registros, vector<Indice>&in
 	if(opcion==5)
 		Compactar(nbin,registros);
 	if(opcion==6){
-		if(flag)
+		if(flag){
 			ILModificar(nbin,registros,indices);
-		else
+		}else
 			Modificar(nbin,registros);
 	}
 	if(opcion==7){
@@ -296,11 +239,20 @@ void Header(const char* nbin, vector<Campo>& registros){
 	int availlist= 0;
 	cout << "Ingrese el numero de campos " << endl;
 	cin >> numcampos;
+	numcampos++;
+	Campo cam;
+	cam.tamano = 2;
+	string s = "CHAR";
+	strcpy(cam.nombre,s.c_str());
+	string ss = "Texto";
+	strcpy(cam.tipo,ss.c_str());
+	registros.push_back(cam);
 	cbytes = cbytes + sizeof(Campo)*numcampos;
 	out.write(reinterpret_cast<char*>(&cbytes), sizeof(int));
 	out.write(reinterpret_cast<char*>(&availlist),sizeof(int));
 	out.write(reinterpret_cast<char*>(&records),sizeof(long int));
-	for(int i=0; i  < numcampos ; i++){
+	out.write(reinterpret_cast<char*>(&cam),sizeof(Campo));
+	for(int i=0; i  < numcampos-1; i++){
 		Campo c;
 		cout << "Ingrese el nombre del campo" << endl;
 		cin >> c.nombre;
@@ -352,7 +304,7 @@ int getStructure(const char*nbin, vector<Campo>& registros){
 	}
 
 }//Donde se obtiene una estructura guardada previamente
-void Agregar(const char* nbin, vector<Campo> registros, vector<Indice>& indices, bool flag){
+void Agregar(const char* nbin, vector<Campo> registros, map<string,int>& indices, bool flag){
 	fstream out (nbin, ios::in|ios::binary|ios::out);
 	charint availist;
 	charlongint records;
@@ -365,10 +317,11 @@ void Agregar(const char* nbin, vector<Campo> registros, vector<Indice>& indices,
 	memcpy(records.raw, m, sizeof(long int));
 	if(availist.num != 0){
 		out.seekp(availist.num+1);
-		char c[sizeof(char)];
-		out.read(c,sizeof(char));
-		int x = (int)c[0];
-		x-=48;
+		char c[sizeof(int)];
+		out.read(c,sizeof(int));
+		charint av;
+		memcpy(av.raw,c,sizeof(int));
+		int x = av.num;
 		out.seekp(4,ios::beg);
 		out.write(reinterpret_cast<char*>(&x),sizeof(int));
 		out.seekp(availist.num,ios::beg);
@@ -378,33 +331,33 @@ void Agregar(const char* nbin, vector<Campo> registros, vector<Indice>& indices,
 	Indice ind;
 	ind.offset = out.tellg();
 	for(int i=0; i< registros.size();i++){
-		string s(registros[i].tipo);
-		if(s.compare("Entero")==0){
-			int value;
-			cout << "Ingrese " << registros[i].nombre << endl;
-			cin >> value;
-			if(i==0){
-				stringstream ss;
-				ss << value;
-				ind.Key = ss.str();
-			}
-			out.write(reinterpret_cast<char*>(&value), sizeof(int));
+		if(i==0){
+			char p = '0';
+			out.write(&p,sizeof(char));
 		}else{
-			char texto[registros[i].tamano];
-			cout << "Ingrese " << registros[i].nombre << endl;
-			cin >> texto;
-			if(i==0)
-				ind.Key = texto;
-			out.write(texto,registros[i].tamano-1); 
-		}
+			string s(registros[i].tipo);
+			if(s.compare("Entero")==0){
+				int value;
+				cout << "Ingrese " << registros[i].nombre << endl;
+				cin >> value;
+				if(i==0){
+					stringstream ss;
+					ss << value;
+					ind.Key = ss.str();
+				}
+				out.write(reinterpret_cast<char*>(&value), sizeof(int));
+			}else{
+				char texto[registros[i].tamano];
+				cout << "Ingrese " << registros[i].nombre << endl;
+				cin >> texto;
+				if(i==0)
+					ind.Key = texto;
+				out.write(texto,registros[i].tamano-1); 
+			}
+		}	
 	}
 	if(flag){
-		int posicion = updateKey(indices, ind.offset);
-		if(posicion == -1)
-			indices.push_back(ind);
-		else
-			indices[posicion].Key = ind.Key;
-		BinaryInsertion(indices,registros[0]);
+		indices.insert(pair<string,int>(ind.Key,ind.offset));
 	}
 	records.num +=1;
 	out.seekp(8,ios::beg);
@@ -412,29 +365,31 @@ void Agregar(const char* nbin, vector<Campo> registros, vector<Indice>& indices,
 	out.close();
 
 }//Agrega los registros
-void ILListar(const char*nbin, vector<Indice>indices, vector<Campo>campos){
+void ILListar(const char*nbin, map<string,int>indices, vector<Campo>campos){
 	ifstream in(nbin, ios::in|ios::binary);
-	for(int i=0; i< indices.size(); i++){
-		if(indices[i].Key != ""){
-			cout <<i+1<<".";
-			in.seekg(indices[i].offset,ios::beg);
-			for(int j=0;j<campos.size(); j++){
-				string tipo(campos[j].tipo);
-				if(tipo.compare("Entero")==0){
-					charint ci;
-					char buffer[sizeof(int)];
-			    	in.read(buffer,sizeof(int));
-					memcpy(ci.raw,buffer,sizeof(int));
+	int i = 1;
+	for(map<string,int>::iterator it = indices.begin(); it != indices.end(); ++it){
+		in.seekg(it->second,ios::beg);
+		cout << i << ".";
+		for(int j=0;j<campos.size(); j++){
+			string tipo(campos[j].tipo);
+			if(tipo.compare("Entero")==0){
+				charint ci;
+				char buffer[sizeof(int)];
+				in.read(buffer,sizeof(int));
+				memcpy(ci.raw,buffer,sizeof(int));
+				if(j!=0)
 					cout << ci.num << ",";
-				}else{
-					char buffer[sizeof(campos[j].tamano-1)];
-					in.read(buffer,campos[j].tamano-1);
-					buffer[campos[j].tamano-1]='\0';
+			}else{
+				char buffer[sizeof(campos[j].tamano-1)];
+				in.read(buffer,campos[j].tamano-1);
+				buffer[campos[j].tamano-1]='\0';
+				if(j!=0)
 					cout << buffer <<",";
-				}
 			}
-     		cout << endl;
 		}
+		cout << endl;
+		i++;
 	}
 }
 
@@ -456,25 +411,34 @@ void Listar(const char* nbin, vector<Campo> registros){
 			i=0;
 			pos++;
 		}
-		string tipo(registros[i].tipo);
-		if(tipo.compare("Entero")==0){
-			char buffer[sizeof(int)];
-			if(!in.read(buffer,sizeof(int)))
+		if(i==0){
+			char p;
+			if(!in.read(&p,sizeof(char)))
 				break;
-			if(buffer[0] == '*'){
-				int size = -1*sizeof(int);
-				for(int i=0;i < registros.size() ;i++){
-					string str(registros[i].tipo);
+			if(p == '*'){
+				in.seekg((int)in.tellg()-1);
+				int size = 0;
+				for(int k = 0 ;k<registros.size() ;k++){
+					string str(registros[k].tipo);
 					if(str.compare("Entero")==0)
 						size += sizeof(int);
 					else
-						size = size + registros[i].tamano-1;
+						size = size + registros[k].tamano -1;
 				}
 				size = size + in.tellg();
 				in.seekg(size);
 				pos++;
+				i=0;
 			}else{
-				if(i==0)
+				i++;
+			}
+		}else{
+			string tipo(registros[i].tipo);
+			if(tipo.compare("Entero")==0){
+				char buffer[sizeof(int)];
+				if(!in.read(buffer,sizeof(int)))
+					break;
+				if(i==1)
 					cout << pos << ". ";
 				cout << registros[i].nombre <<"-";
 				memcpy(ci.raw,buffer,sizeof(int));
@@ -484,26 +448,11 @@ void Listar(const char* nbin, vector<Campo> registros){
 					cout << ci.num;
 				}
 				i++;	
-			}
-		}else{
-			char buffer[registros[i].tamano-1];
-			if(!in.read(buffer,registros[i].tamano-1))
-				break;
-			if(buffer[0] == '*'){
-				int size = -1*(registros[i].tamano-1);
-				for(int i=0;i < registros.size() ;i++){
-					string str(registros[i].tipo);
-					if(str.compare("Entero")==0)
-						size += sizeof(int);
-					else
-						size = size + registros[i].tamano-1;
-				}				
-				size = size + in.tellg();
-				in.seekg(size);
-				pos++;
-
 			}else{
-				if(i==0)
+				char buffer[registros[i].tamano-1];
+				if(!in.read(buffer,registros[i].tamano-1))
+					break;
+				if(i==1)
 					cout << pos << ". ";
 				cout << registros[i].nombre << "-";
 				buffer[registros[i].tamano-1]='\0';
@@ -520,8 +469,7 @@ void Listar(const char* nbin, vector<Campo> registros){
 
 }//Lista los registros
 
-
-void Borrar(const char* nbin, vector<Campo> registros, bool flag, vector<Indice>& indices){
+void Borrar(const char* nbin, vector<Campo> registros, bool flag, map<string,int>& indices){
 	Listar(nbin, registros);
 	int rrn;
 	cout << "Ingrese el numero del registro a eliminar" << endl;
@@ -543,12 +491,29 @@ void Borrar(const char* nbin, vector<Campo> registros, bool flag, vector<Indice>
 	memcpy(records.raw,m, sizeof(long int));//agregado
 	records.num-=1;//agregado
 	in.seekp(os);
-	if (flag)
-		deletekey(indices,os);
+	if(flag){
+		in.seekp(os+sizeof(char));
+		string p(registros[1].tipo);
+		if(p.compare("Entero")){
+			charint value;
+			char buffer[sizeof(int)];
+			in.read(buffer,sizeof(int));
+			memcpy(value.raw,buffer,sizeof(int));
+			stringstream ss;
+			ss << value.num;
+			string key = ss.str();
+			indices.erase(key);
+		}else{
+			char buffer[registros[1].tamano-1];
+			in.read(buffer,registros[1].tamano-1);
+			string s(buffer);
+			indices.erase(s);
+		}
+	}
+	in.seekp(os);
 	char p = '*';
 	in.write(reinterpret_cast<char*>(&p),sizeof(char));
-	char av = (char)(availlist.num + 48);
-	in.put(av);
+	in.write(reinterpret_cast<char*>(&availlist.num),sizeof(int));
 	in.seekp(4);
 	in.write(reinterpret_cast<char*>(&os),sizeof(int));
 	in.seekp(8);
@@ -556,7 +521,7 @@ void Borrar(const char* nbin, vector<Campo> registros, bool flag, vector<Indice>
 	in.close();
 }//Borra al agregar un * en el primer byte del registro y un caracter representando el offset del siguiente espacio disponible
 int offset(int rrn,vector<Campo> registros){
-	int size=0;
+	int size = 0;
 	for(int i=0; i < registros.size() ; i++){
 		string p(registros[i].tipo);
 		if(p.compare("Entero")==0)
@@ -566,14 +531,32 @@ int offset(int rrn,vector<Campo> registros){
 	}
 	return rrn*size;
 }
-void ILModificar(const char*nbin,vector<Campo> registros,vector<Indice>& indices){
+void ILModificar(const char*nbin,vector<Campo> registros,map<string,int>& indices){
 	ILListar(nbin,indices,registros);
 	fstream out(nbin, ios::out|ios::binary|ios::in);
 	int posicion;
 	cout << "Ingrese el numero del registro" << endl;
 	cin >> posicion;
 	posicion--;
-	out.seekp(indices[posicion].offset,ios::beg);
+	out.seekp(offset(posicion,registros),ios::beg);
+	out.seekp((int)out.tellg() + sizeof(char));
+	string s(registros[1].tipo);
+	if(s.compare("Entero")==0){
+		charint value;
+		char buffer[sizeof(int)];
+		out.read(buffer,sizeof(int));
+		memcpy(value.raw,buffer,sizeof(int));
+		stringstream ss;
+		ss << value.num;
+		indices.erase(ss.str());
+	}else{
+		char buffer[registros[1].tamano-1];
+		out.read(buffer,sizeof(int));
+		string s(buffer);
+		indices.erase(s);
+	}
+	out.seekp(offset(posicion,registros),ios::beg);
+	Indice ind;
 	for(int i=0;i<registros.size();i++){
 		string tipo(registros[i].tipo);
 		if(tipo.compare("Entero")==0){
@@ -583,7 +566,7 @@ void ILModificar(const char*nbin,vector<Campo> registros,vector<Indice>& indices
 			if(i==0){
 				stringstream ss;
 				ss << value;
-				indices[posicion].Key = ss.str();
+				ind.Key = ss.str();
 			}
 			out.write(reinterpret_cast<char*>(&value),sizeof(int));
 		}else{
@@ -592,11 +575,12 @@ void ILModificar(const char*nbin,vector<Campo> registros,vector<Indice>& indices
 			cin >> dato;
 			if(i==0){
 				string s(dato);
-				indices[posicion].Key = s;
+				ind.Key = s;
 			}
 			out.write(dato,registros[i].tamano-1);
 		}
 	}
+	indices.insert(pair<string,int>(ind.Key,offset(posicion,registros)));
 	out.close();	
 }
 void Modificar(const char* nbin, vector<Campo> registros){
@@ -614,20 +598,25 @@ void Modificar(const char* nbin, vector<Campo> registros){
 	os+=cbyte.num;
 	in.seekp(os);
 	for(int i=0; i< registros.size();i++){
-		string p(registros[i].tipo);
-		if(p.compare("Entero")==0){
-			int value;
-			cout << "Ingrese " << registros[i].nombre << endl;
-			cin >> value;
-			if(i==0)
-				in.seekp(os);
-			in.write(reinterpret_cast<char*>(&value), sizeof(int));
-
+		if(i == 0){
+			char p = '0';
+			in.write(reinterpret_cast<char*>(&p),sizeof(char));
 		}else{
-			char texto[registros[i].tamano];
-			cout << "Ingrese " << registros[i].nombre << endl;
-			cin >> texto;
-			in.write(texto,registros[i].tamano-1);//si lo modifica 
+			string p(registros[i].tipo);
+			if(p.compare("Entero")==0){
+				int value;
+				cout << "Ingrese " << registros[i].nombre << endl;
+				cin >> value;
+				if(i==0)
+					in.seekp(os);
+				in.write(reinterpret_cast<char*>(&value), sizeof(int));
+
+			}else{
+				char texto[registros[i].tamano];
+				cout << "Ingrese " << registros[i].nombre << endl;
+				cin >> texto;
+				in.write(texto,registros[i].tamano-1);//si lo modifica 
+			}
 		}
 	}
 	in.close();
@@ -655,57 +644,51 @@ void Buscar(const char* nbin, vector<Campo> registros){
 			registro.str("");
 			i=0;
 		}
+		if(i==0){
+			char p;
+			if(!in.read(&p,sizeof(char)))
+				break;
+			if(p=='*'){
+				int size = (int)in.tellg() - sizeof(char);
+				for(int k=1; k<registros.size(); k++){
+					string str(registros[k].tipo);
+					if(str.compare("Entero"))
+						size+=sizeof(int);
+					else{
+						size = size + registros[k].tamano-1;
+					}
+				}
+				in.seekg(size);
+				i=0;
+			}else{
+				i++;
+			}
+		}
 		string p(registros[i].tipo);
 		if(p.compare("Entero")==0){
 			char buffer[sizeof(int)];
 			if(!in.read(buffer,sizeof(int)))
 				break;
-			if(buffer[0] == '*'){
-				int size = -1*sizeof(int);
-				for(int i=0;i < registros.size() ;i++){
-					string g(registros[i].tipo);
-					if(g.compare("Entero")==0)
-						size += sizeof(int);
-					else
-						size = size + registros[i].tamano-1;
-				}
-				size = size + in.tellg();
-				in.seekg(size);
-			}else{
-				memcpy(ci.raw,buffer,sizeof(int));
-				stringstream s;
-				s << ci.num;
-				if(s.str().compare(data)==0){
-					flag=true;
-				}
-				registro << s.str() << ",";
-				i++;	
+
+			memcpy(ci.raw,buffer,sizeof(int));
+			stringstream s;
+			s << ci.num;
+			if(s.str().compare(data)==0){
+				flag=true;
 			}
+			registro << s.str() << ",";
+			i++;	
 		}else{
 			char buffer[registros[i].tamano-1];
 			if(!in.read(buffer,registros[i].tamano-1))
 				break;
-			if(buffer[0] == '*'){
-				int size = -1*(registros[i].tamano-1);
-				for(int i=0;i < registros.size() ;i++){
-					string q(registros[i].tipo);
-					if(q.compare("Entero")==0)
-						size += sizeof(int);
-					else
-						size = size + registros[i].tamano-1;
-				}				
-				size = size + in.tellg();
-				in.seekg(size);
-
-			}else{
-				buffer[registros[i].tamano-1]='\0';
-				string s(buffer);
-				if(s.compare(data)==0){
-					flag=true;
-				}
-				registro << s << ",";
-				i++;
+			buffer[registros[i].tamano-1]='\0';
+			string s(buffer);
+			if(s.compare(data)==0){
+				flag=true;
 			}
+			registro << s << ",";
+			i++;
 		}
 	}
 	if(flag)
