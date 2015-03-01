@@ -6,6 +6,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<map>
+#include<iomanip>
 using namespace std;
 struct Campo{
 	char nombre[15];
@@ -413,6 +414,29 @@ void ILListar(const char*nbin, map<string,int>indices, vector<Campo>campos){
 	ifstream in(nbin, ios::in|ios::binary);
 	int i = 1;
 	string s(campos[1].tipo);
+	stringstream border;
+	for(int k=1;k<campos.size();k++){
+		if(k==1)
+			border << setfill('-')<<setw(1)<<"+"<<setw(5)<<"-"<<setw(1)<<"+";
+		string tipo(campos[k].tipo);
+		if(tipo.compare("Entero")==0){
+			border << setw(8) << "-" << setw(1)<<"+";
+		}else{
+			border << setw(campos[k].tamano*2) << "-" << setw(1) << "+";
+		}
+	}
+	border << endl;
+	cout << border.str();
+	cout <<setfill(' ')<<setw(1)<<"|"<<setw(5)<<left<<"RRN"<<setw(1)<<"|";
+	for(int k=1;k<campos.size();k++){
+		string p(campos[k].tipo);
+		if(p.compare("Entero")==0){
+			cout<<setw(8)<<left<<campos[k].nombre <<setw(1) << "|";
+		}else{
+			cout<<setw(campos[k].tamano*2)<<left << campos[k].nombre << setw(1) << "|";
+		}
+	}
+	cout <<endl<< border.str();
 	if(s.compare("Entero")==0){
 		map<int,int> temporal;
 		for(map<string,int>::iterator it = indices.begin(); it != indices.end(); ++it){
@@ -422,7 +446,7 @@ void ILListar(const char*nbin, map<string,int>indices, vector<Campo>campos){
 		}
 		for(map<int,int>::iterator it = temporal.begin(); it != temporal.end();++it){
 			in.seekg(it->second,ios::beg);
-			cout << i << ".";
+			cout <<setfill(' ')<<setw(1)<<"|"<<setw(5)<<left<< i << setw(1)<<"|";			
 			for(int j=0;j<campos.size(); j++){
 				string tipo(campos[j].tipo);
 				if(tipo.compare("Entero")==0){
@@ -431,23 +455,23 @@ void ILListar(const char*nbin, map<string,int>indices, vector<Campo>campos){
 					in.read(buffer,sizeof(int));
 					memcpy(ci.raw,buffer,sizeof(int));
 					if(j!=0)
-						cout << ci.num << ",";
+						cout<<setw(8)<<left<<ci.num<<setw(1)<<"|";
 				}else{
 					char buffer[sizeof(campos[j].tamano-1)];
 					in.read(buffer,campos[j].tamano-1);
 					buffer[campos[j].tamano-1]='\0';
 					if(j!=0)
-						cout << buffer <<",";
+						cout<<setw(campos[j].tamano*2)<<left<<buffer<<setw(1)<<"|";            					
 				}
 			}
-			cout << endl;
+			cout << endl << border.str();
 			i++;
 
 		}
 	}else{
 		for(map<string,int>::iterator it = indices.begin(); it != indices.end(); ++it){
 			in.seekg(it->second,ios::beg);
-			cout << i << ".";
+			cout <<setfill(' ')<<setw(1)<<"|"<<setw(5)<<left<< i << setw(1)<<"|";						
 			for(int j=0;j<campos.size(); j++){
 				string tipo(campos[j].tipo);
 				if(tipo.compare("Entero")==0){
@@ -456,22 +480,24 @@ void ILListar(const char*nbin, map<string,int>indices, vector<Campo>campos){
 					in.read(buffer,sizeof(int));
 					memcpy(ci.raw,buffer,sizeof(int));
 					if(j!=0)
-						cout << ci.num << ",";
-				}else{
-					char buffer[sizeof(campos[j].tamano-1)];
-					in.read(buffer,campos[j].tamano-1);
-					buffer[campos[j].tamano-1]='\0';
-					if(j!=0)
-						cout << buffer <<",";
-				}
+						cout<<setw(8)<<left<<ci.num<<setw(1)<<"|";						
+					}else{
+						char buffer[sizeof(campos[j].tamano-1)];
+						in.read(buffer,campos[j].tamano-1);
+						buffer[campos[j].tamano-1]='\0';
+						if(j!=0)
+							cout<<setw(campos[j].tamano*2)<<left<<buffer<<setw(1)<<"|";            										
+					}
 			}
-			cout << endl;
+			cout << endl<<border.str();
 			i++;
 		}
 	}
 }
 
 void Listar(const char* nbin, vector<Campo> registros){
+	const char separator = ' ';
+	const int numWidth = 6 ;
 	charint cbyte;
 	charint ci;
 	//	cout << registros.size() << endl;
@@ -483,9 +509,33 @@ void Listar(const char* nbin, vector<Campo> registros){
 	in.seekg(cbyte.num,ios::beg);
 	//cout << cbyte.num << endl;
 	int pos=1;
+	stringstream border;
+	for(int k=1;k<registros.size();k++){
+		if(k==1)
+			border << setfill('-')<<setw(1)<<"+"<<setw(5)<<"-"<<setw(1)<<"+";
+		string tipo(registros[k].tipo);
+		if(tipo.compare("Entero")==0){
+			border << setw(8) << "-" << setw(1)<<"+";
+		}else{
+			border << setw(registros[k].tamano*2) << "-" << setw(1) << "+";
+		}
+	}
+	border << endl;
+	cout << border.str();
+	cout <<setfill(' ')<<setw(1)<<"|"<<setw(5)<<left<<"RRN"<<setw(1)<<"|";
+	for(int k=1;k<registros.size();k++){
+		string p(registros[k].tipo);
+		if(p.compare("Entero")==0){
+			cout<<setw(8)<<left<<registros[k].nombre <<setw(1) << "|";
+		}else{
+			cout<<setw(registros[k].tamano*2)<<left << registros[k].nombre << setw(1) << "|";
+		}
+	}
+	
+	cout  << endl << border.str();
 	while(true){
 		if(i==registros.size()){
-			cout << endl;
+			cout << endl << border.str();
 			i=0;
 			pos++;
 		}
@@ -516,29 +566,19 @@ void Listar(const char* nbin, vector<Campo> registros){
 				char buffer[sizeof(int)];
 				if(!in.read(buffer,sizeof(int)))
 					break;
+					memcpy(ci.raw,buffer,sizeof(int));
 				if(i==1)
-					cout << pos << ". ";
-				cout << registros[i].nombre <<"-";
-				memcpy(ci.raw,buffer,sizeof(int));
-				if(i != registros.size()-1){
-					cout << ci.num << ",";
-				}else{
-					cout << ci.num;
-				}
+					cout <<setfill(' ')<<setw(1)<<"|"<<setw(5)<<left<< pos << setw(1)<<"|";
+				cout<<setw(8)<<left<<ci.num<<setw(1)<<"|";
 				i++;	
 			}else{
 				char buffer[registros[i].tamano-1];
 				if(!in.read(buffer,registros[i].tamano-1))
 					break;
-				if(i==1)
-					cout << pos << ". ";
-				cout << registros[i].nombre << "-";
 				buffer[registros[i].tamano-1]='\0';
-				if(i != registros.size()-1){
-					cout << buffer << ",";
-				}else{
-					cout << buffer;
-				}
+				if(i==1)
+ 					cout <<setfill(' ')<<setw(1)<<"|"<<setw(5)<<left<< pos << setw(1)<<"|";	
+				cout<<setw(registros[i].tamano*2)<<left<<buffer<<setw(1)<<"|";            
 				i++;
 			}
 		}
