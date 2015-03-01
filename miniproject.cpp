@@ -16,7 +16,8 @@ struct Indice{
 	string Key;
 	int offset;
 };
-int Menu(bool&,const char*, vector<Campo>&, map<string,int>&);
+void ILBuscar(const char* ,vector<Campo>, map<string,int>);
+int Menu(bool&,const char*,const char*, vector<Campo>&, map<string,int>&);
 int updateKey(map<string,int>&, int offset);
 int offset(int,vector<Campo>);
 void headerindices(const char*);
@@ -62,7 +63,7 @@ int main(int argc, char* argv[]){
 		strcat(nbin, ".bin");
 		if(getStructure(nbin, registros)==0)
 			return 0;
-		//leerindices(nind, indices,registros[0]);
+		
 	}else{
 		cout<<"Ingrese el nombre de la estructura"<<endl;
 		cin>>n;
@@ -78,11 +79,13 @@ int main(int argc, char* argv[]){
 	}
 	bool flag=false;
 	int opcion2=0;
-	while(Menu(flag,nbin,registros,indices) != 8);
-	guardarindices(nind,indices,registros[0]);
+	while(Menu(flag,nbin,nind,registros,indices) != 9);
+	Reindexar(nbin,indices,registros);
+	guardarindices(nind,indices,registros[1]);
 	return 0;
 }
 void Reindexar(const char* nbin,map<string,int>&indices, vector<Campo> registros){
+	indices.clear();
 	charint cbyte;
 	charint ci;
 	int i=0;
@@ -135,65 +138,67 @@ void headerindices(const char* nind){
 	out.close();
 }
 void guardarindices(const char*nind, map<string,int>&indices,Campo c){
-	ofstream out(nind, ios::in|ios::binary);
-	out.seekp(4,ios::beg);
+	ofstream out(nind, ios::out|ios::binary);
+	out.seekp(4);
 	for(map<string,int>::iterator it = indices.begin(); it != indices.end(); ++it){     
 		string p(c.tipo);
 		if(p.compare("Entero")==0){
 			int value = atoi((it->first).c_str());
 			out.write(reinterpret_cast<char*>(&value),sizeof(int));
 		}else{
-			out.write((it->first).c_str(),c.tamano-1);
+			string s (it->first);
+			out.write(s.c_str(),c.tamano-1); 
 		}
-		int off = it->second;
+		int off = it->second;		
 		out.write(reinterpret_cast<char*>(&off),sizeof(int));
 	}
 	int seguro=1;
 	out.seekp(0,ios::beg);
 	out.write(reinterpret_cast<char*>(&seguro),sizeof(int));
-	out.flush();
 	out.close();
 }
 void leerindices(const char*nind, map<string,int>&indices,Campo c){
+	indices.clear();
 	ifstream in(nind, ios::in|ios::binary);
-	charint seguro;
-	charint value;
-	char buffer[sizeof(int)];
-	in.read(buffer,sizeof(int));
-	memcpy(seguro.raw,buffer,sizeof(int));
+    in.seekg(sizeof(int),ios::beg);
+	Indice i;
 	while(true){
-		Indice i;
-		string e(c.tipo);
-		if(e.compare("Entero")==0){
+		string tipo(c.tipo);
+		if(tipo.compare("Entero")==0){
+			charint value;
+			char buffer[sizeof(int)];
 			if(!in.read(buffer,sizeof(int)))
 				break;
 			memcpy(value.raw,buffer,sizeof(int));
 			stringstream ss;
 			ss << value.num;
-			i.Key=ss.str();
+			i.Key = ss.str();
 		}else{
-			char b[c.tamano-1];
-			if(!in.read(b,c.tamano-1))
+			char buffer[c.tamano-1];
+			if(!in.read(buffer,c.tamano-1))
 				break;
-			b[c.tamano-1]='\0';
-			string s(b);
-			i.Key=s;
+			buffer[c.tamano-1] = '\0';
+			string s(buffer);
+			i.Key = s;
 		}
-		if(!in.read(buffer,sizeof(int)))
+		charint off;
+		char b[sizeof(int)];
+		if(!in.read(b,sizeof(int)))
 			break;
-		memcpy(value.raw,buffer,sizeof(int));
-		i.offset = value.num;
+		memcpy(off.raw,b,sizeof(int));
+		i.offset = off.num;
 		indices.insert(pair<string,int>(i.Key,i.offset));
 	}
 	in.close();
 }
-int Menu(bool& flag,const char* nbin, vector<Campo>&registros, map<string,int>&indices){
+int Menu(bool& flag,const char* nbin,const char* nind, vector<Campo>&registros, map<string,int>&indices){
 	if(!flag){
-		cout << "1.Agregar Datos\n2.Listar Datos\n3.Buscar Registro\n4.Borrar\n5.Compactar\n6.Modificar\n7.Activar Indice Lineal" 
-			<<"\n8.Salir"<< endl;
+		cout << "1.Agregar Datos\n2.Listar Datos\n3.Buscar Registro\n4.Borrar\n5.Compactar"
+		<< "\n6.Modificar\n7.Reindexar\n8.Activar Indice Lineal" 
+			<<"\n9.Salir"<< endl;
 	}else{
 		cout << "1.Agregar Datos\n2.Listar Datos\n3.Buscar Registro\n4.Borrar"
-			<<"\n5.Compactar\n6.Modificar\n7.Desactivar Indice Lineal\n8.Salir"<< endl;
+			<<"\n5.Compactar\n6.Modificar\n7.Reindexar\n8.Desactivar Indice Lineal\n9.Salir"<< endl;
 	}
 	int opcion;
 	cin >> opcion;
@@ -206,7 +211,10 @@ int Menu(bool& flag,const char* nbin, vector<Campo>&registros, map<string,int>&i
 			Listar(nbin, registros);
 	}
 	if(opcion==3)
-		Buscar(nbin,registros);
+		if(flag)
+			ILBuscar(nbin,registros,indices);
+		else 
+			Buscar(nbin,registros);
 	if(opcion==4)
 		Borrar(nbin,registros,flag,indices);
 	if(opcion==5)
@@ -218,17 +226,53 @@ int Menu(bool& flag,const char* nbin, vector<Campo>&registros, map<string,int>&i
 			Modificar(nbin,registros);
 	}
 	if(opcion==7){
+		indices.clear();
+		Reindexar(nbin,indices,registros);
+			
+	}
+	if(opcion==8){
 		if(flag)
 			flag=false;
 		else{
-			Reindexar(nbin,indices,registros);
+			leerindices(nind,indices,registros[1]);
 			flag = true;
 		}
 	}
-	if(opcion==8)
-		return 8;
+	if(opcion==9)
+		return 9;
 	return 0;
 
+}
+void ILBuscar(const char* nbin,vector<Campo>registros, map<string,int>Indices){
+	string dato;
+	cout << "Ingrese la llave del registro" << endl;
+	cin >> dato;
+	map<string,int>::iterator it;
+	it = Indices.find(dato);
+	if (it != Indices.end()){
+		ifstream in(nbin,ios::in|ios::binary);
+		in.seekg(it->second);
+		for(int i=0;i<registros.size();i++){
+				string p(registros[i].tipo);
+				if(p.compare("Entero")==0){
+					charint value;
+					char buffer[sizeof(int)];
+					in.read(buffer,sizeof(int));
+					memcpy(value.raw,buffer,sizeof(int));
+					if(i!=0)
+						cout << value.num << ",";
+				}else{
+					char buffer[registros[i].tamano-1];
+					in.read(buffer,registros[i].tamano-1);
+					buffer[registros[i].tamano-1] = '\0';
+					if(i!=0)
+						cout << buffer << ",";
+				}
+		}
+		cout << endl;
+	}else{
+		cout << "El registro no fue encontrado" << endl;
+	}
 }
 void Header(const char* nbin, vector<Campo>& registros){
 	ofstream out(nbin, ios::out|ios::binary);
@@ -368,28 +412,62 @@ void Agregar(const char* nbin, vector<Campo> registros, map<string,int>& indices
 void ILListar(const char*nbin, map<string,int>indices, vector<Campo>campos){
 	ifstream in(nbin, ios::in|ios::binary);
 	int i = 1;
-	for(map<string,int>::iterator it = indices.begin(); it != indices.end(); ++it){
-		in.seekg(it->second,ios::beg);
-		cout << i << ".";
-		for(int j=0;j<campos.size(); j++){
-			string tipo(campos[j].tipo);
-			if(tipo.compare("Entero")==0){
-				charint ci;
-				char buffer[sizeof(int)];
-				in.read(buffer,sizeof(int));
-				memcpy(ci.raw,buffer,sizeof(int));
-				if(j!=0)
-					cout << ci.num << ",";
-			}else{
-				char buffer[sizeof(campos[j].tamano-1)];
-				in.read(buffer,campos[j].tamano-1);
-				buffer[campos[j].tamano-1]='\0';
-				if(j!=0)
-					cout << buffer <<",";
-			}
+	string s(campos[1].tipo);
+	if(s.compare("Entero")==0){
+		map<int,int> temporal;
+		for(map<string,int>::iterator it = indices.begin(); it != indices.end(); ++it){
+			 string Key = it->first;
+			 int offset = it->second;
+			 temporal.insert(pair<int,int>(atoi(Key.c_str()),offset));
 		}
-		cout << endl;
-		i++;
+		for(map<int,int>::iterator it = temporal.begin(); it != temporal.end();++it){
+			in.seekg(it->second,ios::beg);
+			cout << i << ".";
+			for(int j=0;j<campos.size(); j++){
+				string tipo(campos[j].tipo);
+				if(tipo.compare("Entero")==0){
+					charint ci;
+					char buffer[sizeof(int)];
+					in.read(buffer,sizeof(int));
+					memcpy(ci.raw,buffer,sizeof(int));
+					if(j!=0)
+						cout << ci.num << ",";
+				}else{
+					char buffer[sizeof(campos[j].tamano-1)];
+					in.read(buffer,campos[j].tamano-1);
+					buffer[campos[j].tamano-1]='\0';
+					if(j!=0)
+						cout << buffer <<",";
+				}
+			}
+			cout << endl;
+			i++;
+
+		}
+	}else{
+		for(map<string,int>::iterator it = indices.begin(); it != indices.end(); ++it){
+			in.seekg(it->second,ios::beg);
+			cout << i << ".";
+			for(int j=0;j<campos.size(); j++){
+				string tipo(campos[j].tipo);
+				if(tipo.compare("Entero")==0){
+					charint ci;
+					char buffer[sizeof(int)];
+					in.read(buffer,sizeof(int));
+					memcpy(ci.raw,buffer,sizeof(int));
+					if(j!=0)
+						cout << ci.num << ",";
+				}else{
+					char buffer[sizeof(campos[j].tamano-1)];
+					in.read(buffer,campos[j].tamano-1);
+					buffer[campos[j].tamano-1]='\0';
+					if(j!=0)
+						cout << buffer <<",";
+				}
+			}
+			cout << endl;
+			i++;
+		}
 	}
 }
 
@@ -492,9 +570,9 @@ void Borrar(const char* nbin, vector<Campo> registros, bool flag, map<string,int
 	records.num-=1;//agregado
 	in.seekp(os);
 	if(flag){
-		in.seekp(os+sizeof(char));
+		in.seekg(os+sizeof(char));
 		string p(registros[1].tipo);
-		if(p.compare("Entero")){
+		if(p.compare("Entero")==0){
 			charint value;
 			char buffer[sizeof(int)];
 			in.read(buffer,sizeof(int));
@@ -506,8 +584,10 @@ void Borrar(const char* nbin, vector<Campo> registros, bool flag, map<string,int
 		}else{
 			char buffer[registros[1].tamano-1];
 			in.read(buffer,registros[1].tamano-1);
+			buffer[registros[1].tamano-1]='\0';
 			string s(buffer);
 			indices.erase(s);
+			cout << indices.size() << endl;
 		}
 	}
 	in.seekp(os);
@@ -663,32 +743,33 @@ void Buscar(const char* nbin, vector<Campo> registros){
 			}else{
 				i++;
 			}
-		}
-		string p(registros[i].tipo);
-		if(p.compare("Entero")==0){
-			char buffer[sizeof(int)];
-			if(!in.read(buffer,sizeof(int)))
-				break;
-
-			memcpy(ci.raw,buffer,sizeof(int));
-			stringstream s;
-			s << ci.num;
-			if(s.str().compare(data)==0){
-				flag=true;
-			}
-			registro << s.str() << ",";
-			i++;	
 		}else{
-			char buffer[registros[i].tamano-1];
-			if(!in.read(buffer,registros[i].tamano-1))
-				break;
-			buffer[registros[i].tamano-1]='\0';
-			string s(buffer);
-			if(s.compare(data)==0){
-				flag=true;
+			string p(registros[i].tipo);
+			if(p.compare("Entero")==0){
+				char buffer[sizeof(int)];
+				if(!in.read(buffer,sizeof(int)))
+					break;
+
+				memcpy(ci.raw,buffer,sizeof(int));
+				stringstream s;
+				s << ci.num;
+				if(s.str().compare(data)==0){
+					flag=true;
+				}
+				registro << s.str() << ",";
+				i++;	
+			}else{
+				char buffer[registros[i].tamano-1];
+				if(!in.read(buffer,registros[i].tamano-1))
+					break;
+				buffer[registros[i].tamano-1]='\0';
+				string s(buffer);
+				if(s.compare(data)==0){
+					flag=true;
+				}
+				registro << s << ",";
+				i++;
 			}
-			registro << s << ",";
-			i++;
 		}
 	}
 	if(flag)
