@@ -17,6 +17,7 @@ struct Indice{
 	string Key;
 	int offset;
 };
+void ILBorrar(const char* , vector<Campo>,map<string,int>&);
 void ILBuscar(const char* ,vector<Campo>, map<string,int>);
 int Menu(bool&,const char*,const char*, vector<Campo>&, map<string,int>&);
 int updateKey(map<string,int>&, int offset);
@@ -29,7 +30,7 @@ void Header(const char*, vector<Campo>&);
 void Agregar(const char*,vector<Campo>,map<string,int>&,bool);
 void Listar(const char*, vector<Campo>);
 void ILListar(const char*, map<string,int>, vector<Campo>);
-void Borrar(const char*, vector<Campo>,bool,map<string,int>&);
+void Borrar(const char*, vector<Campo>);
 void Modificar(const char*,vector<Campo>);
 void Compactar(const char*,vector<Campo>);
 void Buscar(const char*, vector<Campo>);
@@ -217,7 +218,10 @@ int Menu(bool& flag,const char* nbin,const char* nind, vector<Campo>&registros, 
 		else 
 			Buscar(nbin,registros);
 	if(opcion==4)
-		Borrar(nbin,registros,flag,indices);
+		if(flag)
+			ILBorrar(nbin,registros,indices);
+		else
+			Borrar(nbin,registros);
 	if(opcion==5)
 		Compactar(nbin,registros);
 	if(opcion==6){
@@ -627,8 +631,46 @@ void Listar(const char* nbin, vector<Campo> registros){
 
 }//Lista los registros
 
+void ILBorrar(const char* nbin, vector<Campo> registros,map<string,int>& indices){
+	fstream in(nbin, ios::out|ios::binary|ios::in);
+	charint cbyte,availlist;
+	charlongint records;
+	char m[sizeof(long int)];//agregado
+	char b[sizeof(int)];
+	in.read(b, sizeof(int));
+	memcpy(cbyte.raw,b,sizeof(int));
+	in.read(b, sizeof(int));
+	memcpy(availlist.raw,b, sizeof(int));
+	in.read(m, sizeof(long int));//agregado
+	memcpy(records.raw,m, sizeof(long int));//agregado
+	records.num-=1;//agregado	
+	ILListar(nbin,indices,registros);
+	int posicion;
+	cout << "Ingrese el numero del registro" << endl;
+	cin >> posicion;
+	posicion--;
+	int i=0;
+	int os ;
+	for(map<string,int>::iterator it = indices.begin(); it != indices.end(); it++){
+			if(i==posicion){
+				os = it -> second;
+				indices.erase(it->first);
+				break;
+			}
+			i++;
+	}
+	in.seekp(os);
+	char p = '*';
+	in.write(reinterpret_cast<char*>(&p),sizeof(char));
+	in.write(reinterpret_cast<char*>(&availlist.num),sizeof(int));
+	in.seekp(4);
+	in.write(reinterpret_cast<char*>(&os),sizeof(int));
+	in.seekp(8);
+	in.write(reinterpret_cast<char*>(&records.num),sizeof(long int));//agregado
+	in.close();
 
-void Borrar(const char* nbin, vector<Campo> registros, bool flag, map<string,int>& indices){
+}
+void Borrar(const char* nbin, vector<Campo> registros){
 	Listar(nbin, registros);
 	int rrn;
 	cout << "Ingrese el numero del registro a eliminar" << endl;
@@ -649,28 +691,6 @@ void Borrar(const char* nbin, vector<Campo> registros, bool flag, map<string,int
 	in.read(m, sizeof(long int));//agregado
 	memcpy(records.raw,m, sizeof(long int));//agregado
 	records.num-=1;//agregado
-	in.seekp(os);
-	if(flag){
-		in.seekg(os+sizeof(char));
-		string p(registros[1].tipo);
-		if(p.compare("Entero")==0){
-			charint value;
-			char buffer[sizeof(int)];
-			in.read(buffer,sizeof(int));
-			memcpy(value.raw,buffer,sizeof(int));
-			stringstream ss;
-			ss << value.num;
-			string key = ss.str();
-			indices.erase(key);
-		}else{
-			char buffer[registros[1].tamano-1];
-			in.read(buffer,registros[1].tamano-1);
-			buffer[registros[1].tamano-1]='\0';
-			string s(buffer);
-			indices.erase(s);
-			cout << indices.size() << endl;
-		}
-	}
 	in.seekp(os);
 	char p = '*';
 	in.write(reinterpret_cast<char*>(&p),sizeof(char));
@@ -699,25 +719,18 @@ void ILModificar(const char*nbin,vector<Campo> registros,map<string,int>& indice
 	cout << "Ingrese el numero del registro" << endl;
 	cin >> posicion;
 	posicion--;
-	out.seekp(offset(posicion,registros),ios::beg);
-	out.seekp((int)out.tellg() + sizeof(char));
-	string s(registros[1].tipo);
-	if(s.compare("Entero")==0){
-		charint value;
-		char buffer[sizeof(int)];
-		out.read(buffer,sizeof(int));
-		memcpy(value.raw,buffer,sizeof(int));
-		stringstream ss;
-		ss << value.num;
-		indices.erase(ss.str());
-	}else{
-		char buffer[registros[1].tamano-1];
-		out.read(buffer,sizeof(int));
-		string s(buffer);
-		indices.erase(s);
+	int i=0;
+	for(map<string,int>::iterator it = indices.begin(); it != indices.end(); it++){
+			if(i==posicion){
+				out.seekp(it->second);
+				indices.erase(it->first);
+				break;
+			}
+			i++;
+
 	}
-	out.seekp(offset(posicion,registros),ios::beg);
 	Indice ind;
+	ind.offset = out.tellp();
 	for(int i=0;i<registros.size();i++){
 		string tipo(registros[i].tipo);
 		if(i==0){
@@ -728,7 +741,7 @@ void ILModificar(const char*nbin,vector<Campo> registros,map<string,int>& indice
 				int value;
 				cout << "Ingrese "<< registros[i].nombre << endl;
 				cin >> value;
-				if(i==0){
+				if(i==1){
 					stringstream ss;
 					ss << value;
 					ind.Key = ss.str();
@@ -738,14 +751,15 @@ void ILModificar(const char*nbin,vector<Campo> registros,map<string,int>& indice
 				char dato[registros[i].tamano];
 				cout << "Ingrese " << registros[i].nombre << endl;
 				cin >> dato;
-				if(i==0){
+				if(i==1){
 					string s(dato);
 					ind.Key = s;
 				}
 				out.write(dato,registros[i].tamano-1);
-			}}
+			}
+		}
 	}
-	indices.insert(pair<string,int>(ind.Key,offset(posicion,registros)));
+	indices.insert(pair<string,int>(ind.Key,ind.offset));
 	out.close();	
 }
 void Modificar(const char* nbin, vector<Campo> registros){
