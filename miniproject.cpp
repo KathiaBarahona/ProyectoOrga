@@ -59,8 +59,9 @@ void ILModificar(const char*,vector<Campo>,map<string,int>&);
 //Funciones Arboles
 Indice BusquedaB(const char*,string, bpage, int,Campo);
 void split(const char*,Indice,int,bpage, Indice&,int&,bpage&);
-void readpage(const char,bpage&,int,Campo);
-void writepage(const char,bpage,int,Campo);
+void readpage(const char*,bpage&,int,Campo);
+void writepage(const char*,bpage,int,Campo);
+string insert(const char*,Campo,int&,Indice&,int&,Indice&);
 void writepage(const char* arbol, bpage page,int RRN, Campo c){
         ofstream out(arbol,ios::out|ios::binary);
         out.seekp(RRN);
@@ -223,7 +224,60 @@ Indice BusquedaB(const char* arbol, string data, bpage page, int RRN, Campo c){
         readpage(arbol,page,RRN,c);        
         return BusquedaB(arbol,data,page,RRN,c);
 }
+string insert(const char* arbol,Campo c,int& RRN, Indice& ind, int& Promo_RRN, Indice& Promo_Key){
+        Indice P_B_Key;
+        int P_B_RRN;
+        if(RRN == -1){
+             strcpy((char*)Promo_Key.Key.c_str(),(const char*)ind.Key.c_str());
+             Promo_Key.offset = ind.offset;
+             Promo_RRN = -1;
+             return "Promoted";
+        }else{
+                bpage page;
+                readpage(arbol,page,RRN, c);
+                Indice pos = BusquedaB(arbol,ind.Key,page,RRN,c);
+                if(pos.Key.compare("RRN Page")!=0)
+                        return "Error";
+                string return_value = insert(arbol,c,pos.offset,ind,P_B_RRN,P_B_Key);
+                if(return_value.compare("No Promotion") == 0 || return_value.compare("Error")==0){
+                        return return_value;
+                }else if (page.keycount != 15){
+                        map<string,int>temporal;
+                        temporal.insert(pair<string,int>(P_B_Key.Key,P_B_Key.offset));
+                        for(int i=0;i<page.keycount;i++){
+                                temporal.insert(pair<string,int>(page.indices[i].Key,page.indices[i].offset));
+                        }
+                        int p = 0;
+                        int position;
+                        for(map<string,int>::iterator it = temporal.begin(); it != temporal.end();++it,p++){
+                                if(P_B_Key.Key.compare(it->first)==0)
+                                        position = p;                                
+                                strcpy((char*)page.indices[p].Key.c_str(),(const char*)(it->first).c_str());
+                                page.indices[p].offset = it->second;
+                        }
+                        p=0;
+                        for(int i = page.keycount+1; i >=0;i--){
+                                if(i == position){
+                                        page.RRNHijos[i] = P_B_RRN;
+                                        break;
+                                }
+                                page.RRNHijos[i] = page.RRNHijos[i-1];
+                                
+                        }
+                        page.keycount++;
+                        writepage(arbol,page,RRN,c);
+                        return "No Promotion";
+                }else{
+                        bpage newpage;
+                        split(arbol,P_B_Key,P_B_RRN,page, Promo_Key,Promo_RRN,newpage);
+                        writepage(arbol,page,RRN,c);
+                        writepage(arbol,newpage,Promo_RRN,c);
+                        return "Promoted";
 
+                }
+
+        }
+}
 void ILCruzar(){
         bool bandera = true;
         char*archivo1;
