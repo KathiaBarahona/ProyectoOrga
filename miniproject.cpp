@@ -56,12 +56,48 @@ void Compactar(const char*,vector<Campo>);
 int Buscar(const char*, vector<Campo>,string,bool);
 void guardarindices(const char*, map<string,int>&,Campo);
 void ILModificar(const char*,vector<Campo>,map<string,int>&);
-//Funciones Arboles
+//Funciones ArbolB
+void ListarB(const char*,const char*,int,Campo,vector<Campo>);
 Indice BusquedaB(const char*,string, bpage, int,Campo);
 void split(const char*,Indice,int,bpage, Indice&,int&,bpage&);
 void readpage(const char*,bpage&,int,Campo);
 void writepage(const char*,bpage,int,Campo);
 string insert(const char*,Campo,int&,Indice&,int&,Indice&);
+void ListarB(const char* arbol,const char* nbin,int RRN,Campo c,vector<Campo>campos){
+        if(RRN == -1)
+                return;
+        else{
+                bpage page;
+                readpage(arbol,page,RRN,c);
+                for(int i=0; i < page.keycount+1;i++){
+                        ListarB(arbol,nbin,page.RRNHijos[i],c,campos);
+                        if(i<page.keycount){
+                                ifstream in (nbin,ios::in|ios::out);
+                                in.seekg(page.indices[i].offset);
+                                for(int j=0;j<campos.size();j++){
+                                        string tipo(campos[j].tipo);
+                                        if(j == 0){
+                                                char p;
+                                                in.read(&p,sizeof(char));
+                                        }else{
+                                                if(tipo.compare("Entero")==0){
+                                                        charint ci;
+                                                        char buffer[sizeof(int)];
+                                                        in.read(buffer,sizeof(int));
+                                                        memcpy(ci.raw,buffer,sizeof(int));
+                                                        cout << ci.num << endl;
+                                                }else{
+                                                        char buffer[campos[j].tamano-1];
+                                                        in.read(buffer,campos[j].tamano-1);
+                                                        buffer[campos[j].tamano-1] = '\0';
+                                                        cout << buffer << endl;
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+}
 void writepage(const char* arbol, bpage page,int RRN, Campo c){
         ofstream out(arbol,ios::out|ios::binary);
         out.seekp(RRN);
