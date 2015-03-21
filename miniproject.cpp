@@ -58,8 +58,89 @@ void guardarindices(const char*, map<string,int>&,Campo);
 void ILModificar(const char*,vector<Campo>,map<string,int>&);
 //Funciones Arboles
 Indice BusquedaB(const char*,string, bpage, int,Campo);
-void split(char*arbol,Indice,int,bpage, Indice&,int&,bpage&);
-void split(char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_Key, int& Promo_RRN,bpage& newpage){
+void split(const char*,Indice,int,bpage, Indice&,int&,bpage&);
+void readpage(const char,bpage&,int,Campo);
+void writepage(const char,bpage,int,Campo);
+void writepage(const char* arbol, bpage page,int RRN, Campo c){
+        ofstream out(arbol,ios::out|ios::binary);
+        out.seekp(RRN);
+        out.write(reinterpret_cast<char*>(&page.keycount),sizeof(int));
+        for(int i=0;i<page.keycount;i++){
+                string tipo(c.tipo);
+                if(tipo.compare("Entero")==0){
+                        int value = atoi(page.indices[i].Key.c_str());
+                        out.write(reinterpret_cast<char*>(&value),sizeof(int));
+                }else{
+                        out.write(page.indices[i].Key.c_str(),c.tamano-1);
+                        
+                }
+                out.write(reinterpret_cast<char*>(&page.indices[i].offset),sizeof(int));
+
+        }
+        for(int i = page.keycount;i<15;i++){
+                string tipo(c.tipo);
+                if(tipo.compare("Entero")==0){
+                        int value = 0;
+                        out.write(reinterpret_cast<char*>(&value),sizeof(int));
+                }else{  
+                        string st = "";
+                        out.write(st.c_str(),c.tamano-1);
+                        
+                }
+                int n = -1;
+                out.write(reinterpret_cast<char*>(&n),sizeof(int));                
+        }
+        for(int i = 0; i < page.keycount+1; i++){
+                out.write(reinterpret_cast<char*>(&page.RRNHijos[i]),sizeof(int));
+        }
+        for(int i = page.keycount+1;i < 16;i++){
+                int n =-1;
+                out.write(reinterpret_cast<char*>(&n),sizeof(int));                                
+        }
+
+}
+void readpage(const char* arbol, bpage& page,int RRN, Campo c){
+        ifstream in(arbol,ios::in|ios::binary);
+        in.seekg(RRN);
+        charint ci;
+        char buffer[sizeof(int)];
+        in.read(buffer,sizeof(int));
+        memcpy(ci.raw,buffer,sizeof(int));
+        page.keycount = ci.num;
+        for(int i = 0; i < 15 ; i++){
+                Indice ind;
+                string tipo(c.tipo);
+                if(tipo.compare("Entero")==0){
+                        char b[sizeof(int)];
+                        charint c1;
+                        in.read(b,sizeof(int));
+                        memcpy(c1.raw,b,sizeof(int));
+                        stringstream ss;
+                        ss << c1.num;
+                        strcpy((char*)ind.Key.c_str(),(const char*)ss.str().c_str());
+                }else{
+                        char b[c.tamano-1];
+                        in.read(b,c.tamano-1);
+                         b[c.tamano-1] ='\0';
+                        strcpy((char*)ind.Key.c_str(),b);
+                }
+                charint c2;
+                char b3[sizeof(int)];
+                in.read(b3,sizeof(int));
+                memcpy(c2.raw,b3,sizeof(int));
+                ind.offset = c2.num;
+                page.indices[i] = ind;
+        }
+        for(int i = 0; i < 16; i++){
+                charint c3;
+                char buff[sizeof(int)];
+                in.read(buff,sizeof(int));
+                memcpy(c3.raw,buff,sizeof(int));
+                page.RRNHijos[i] = c3.num;
+        }
+
+}
+void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_Key, int& Promo_RRN,bpage& newpage){
             bpage2 workingpage;
             map<string,int> temporal;
             temporal.insert(pair<string,int>(nuevo.Key,nuevo.offset));
@@ -107,11 +188,17 @@ void split(char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_Key, in
             int i = 0;
             for(p;p<16;p++,i++){
                      strcpy((char*)newpage.indices[i].Key.c_str(),(const char*)workingpage.indices[p].Key.c_str());
-                     page.indices[i].offset = workingpage.indices[p].offset;                  
-                     strcpy((char*)page[p].Key,(const char*)workingpage.indices[p].Key);
-                     page[p].offset = workingpage.indices[p].offset;
+                     newpage.indices[i].offset = workingpage.indices[p].offset;                  
+                     strcpy((char*)newpage.indices[p].Key.c_str(),(const char*)workingpage.indices[p].Key.c_str());
+                     newpage.indices[p].offset = workingpage.indices[p].offset;
                      p++;
             }//agrega los indices a la pagina nueva
+            for(int k = 0; k < 8; k++){
+                    page.RRNHijos[k] = workingpage.RRNHijos[k];
+            }
+            i = 0;
+            for(int k = 8 ; k < 17;k++,i++)
+                    newpage.RRNHijos[i] = workingpage.RRNHijos[k];
            
 }
 Indice BusquedaB(const char* arbol, string data, bpage page, int RRN, Campo c){
@@ -133,40 +220,8 @@ Indice BusquedaB(const char* arbol, string data, bpage page, int RRN, Campo c){
                 ind.offset = RRNant;
                 return ind;
         }
-        ifstream in(arbol,ios::in|ios::binary);
-        in.seekg(RRN);
-        for(int i = 0; i < 15 ; i++){
-                Indice ind;
-                string tipo(c.tipo);
-                if(tipo.compare("Entero")==0){
-                        char b[sizeof(int)];
-                        charint c1;
-                        in.read(b,sizeof(int));
-                        memcpy(c1.raw,b,sizeof(int));
-                        stringstream ss;
-                        ss << c1.num;
-                        strcpy((char*)ind.Key.c_str(),(const char*)ss.str().c_str());
-                }else{
-                        char b[c.tamano-1];
-                        in.read(b,c.tamano-1);
-                         b[c.tamano-1] ='\0';
-                        strcpy((char*)ind.Key.c_str(),b);
-                }
-                charint c2;
-                char b3[sizeof(int)];
-                in.read(b3,sizeof(int));
-                memcpy(c2.raw,b3,sizeof(int));
-                ind.offset = c2.num;
-                page.indices[i] = ind;
-        }
-        for(int i = 0; i < 16; i++){
-                charint c3;
-                char buff[sizeof(int)];
-                in.read(buff,sizeof(int));
-                memcpy(c3.raw,buff,sizeof(int));
-                page.RRNHijos[i] = c3.num;
-        }
-       return BusquedaB(arbol,data,page,RRN,c);
+        readpage(arbol,page,RRN,c);        
+        return BusquedaB(arbol,data,page,RRN,c);
 }
 
 void ILCruzar(){
