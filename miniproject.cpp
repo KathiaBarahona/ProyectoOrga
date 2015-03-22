@@ -22,11 +22,7 @@ struct bpage{
         vector<Indice>indices;
         vector<int>RRNHijos;
 };
-struct bpage2{
-        int keycount;
-        vector<Indice>indices;
-        vector<int>RRNHijos;
-};
+
 union charint{
         char raw[sizeof(int)];
         int num;
@@ -193,7 +189,7 @@ void readpage(const char* arbol, bpage& page,int RRN,vector<Indice>&indices,vect
 
 }
 void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_Key, int& Promo_RRN,bpage& newpage){
-            bpage2 workingpage;
+            bpage workingpage;
             map<string,int> temporal;
             temporal.insert(pair<string,int>(nuevo.Key,nuevo.offset));
             for(int i=0;i<15;i++){
