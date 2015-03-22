@@ -204,17 +204,18 @@ void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_K
             for(map<string,int>::iterator it = temporal.begin(); it != temporal.end();++it){
                     if(nuevo.Key.compare(it->first)==0)
                             position = p;
-                    workingpage.indices[p].Key=it->first;
-                    workingpage.indices[p].offset = it->second;
+                    Indice ind;
+                    ind.Key=it->first;
+                    ind.offset = it->second;
+                    workingpage.indices.push_back(ind);
                     workingpage.keycount++;
                     p++;
             }//organiza los indices
-            workingpage.RRNHijos[position] = newRRN;//agrega el RRN 
-            p = 0 ;
             for(int i=0;i<16;i++){
-                    if(p == position)
-                            p++;
-                    workingpage.RRNHijos[p] = page.RRNHijos[i];
+                    if(i == position)
+                            workingpage.RRNHijos.push_back(newRRN);
+                    else
+                        workingpage.RRNHijos.push_back(page.RRNHijos[i]);
             }//Organiza los RRN
             Promo_Key.Key = workingpage.indices[7].Key;
             Promo_Key.offset = workingpage.indices[7].offset;
@@ -230,7 +231,7 @@ void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_K
             }//agrega los indices a la pagina
             page.keycount = 7;
             newpage.keycount = 8;
-            for(p; p < 15;p++){
+            for(p=7; p < 15;p++){
                     Indice ind;
                     ind.Key = "";
                     ind.offset = -1;
@@ -240,15 +241,16 @@ void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_K
             p = page.keycount + 2;
             int i = 0;
             for(p;p<16;p++,i++){
-                     newpage.indices[i].Key = workingpage.indices[p].Key;
-                     newpage.indices[i].offset = workingpage.indices[p].offset;                  
+                     Indice ind;
+                     ind.Key = workingpage.indices[p].Key;
+                     ind.offset = workingpage.indices[p].offset;
+                     newpage.indices.push_back(ind);
             }//agrega los indices a la pagina nueva
             for(int k = 0; k < 8; k++){
                     page.RRNHijos[k] = workingpage.RRNHijos[k];
             }
-            i = 0;
             for(int k = 8 ; k < 17;k++,i++)
-                    newpage.RRNHijos[i] = workingpage.RRNHijos[k];
+                    newpage.RRNHijos.push_back( workingpage.RRNHijos[k]);
            
 }
 void BusquedaB(const char* arbol, string data, bpage page, int RRN, Campo c,Indice& ind,bool flag){
@@ -260,21 +262,27 @@ void BusquedaB(const char* arbol, string data, bpage page, int RRN, Campo c,Indi
                         ind.offset = page.indices[i].offset;
                         return;
                 }
-                if(page.indices[i].Key.compare(data) < 0){
+                if(page.indices[i].Key.compare(data) > 0){
                         RRN = page.RRNHijos[i];
+                        break;
                 }
                 else
                         RRN = page.RRNHijos[i+1];
 
         }
+          if(flag && RRN != 0 && RRN !=-1){
+                  ind.Key = "RRN Page";
+                  ind.offset = RRN;
+                  return;
+          }
           if ( RRN == -1 || RRN == 0){
                 ind.Key = "RRN Page";
-                if(!flag)
-                    ind.offset = RRNant;
-                else
+                if(flag)
                     ind.offset = -1;
+                else
+                    ind.offset = RRNant;
                 return;
-       }
+          }
         readpage(arbol,page,RRN,page.indices,page.RRNHijos,c);
         return BusquedaB(arbol,data,page,RRN,c,ind,flag);
 }
@@ -284,7 +292,7 @@ string insert(const char* arbol,Campo c,int& RRN, Indice& ind, int& Promo_RRN, I
         if(RRN == -1){
              Promo_Key.Key = ind.Key;
              Promo_Key.offset = ind.offset;
-             Promo_RRN = -1;
+             Promo_RRN = RRN;
              return "Promoted";
         }else{
                 bpage page;
@@ -326,8 +334,9 @@ string insert(const char* arbol,Campo c,int& RRN, Indice& ind, int& Promo_RRN, I
                         bpage newpage;
                         split(arbol,P_B_Key,P_B_RRN,page, Promo_Key,Promo_RRN,newpage);
                         writepage(arbol,page,RRN,c);
-                        writepage(arbol,newpage,Promo_RRN,c);
+                        writepage(arbol,newpage,Promo_RRN,c); 
                         return "Promoted";
+
 
                 }
 
@@ -1324,6 +1333,7 @@ void Agregar(const char* nbin, vector<Campo> registros, map<string,int>& indices
                 out.seekp(0,ios::end);
         }
         ind.offset = out.tellp();
+        cout << ind.offset << endl;
         for(int i=0; i< registros.size();i++){
                 if(i==0){
                         char p = '0';
