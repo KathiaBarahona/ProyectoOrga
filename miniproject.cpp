@@ -19,13 +19,13 @@ struct Indice{
 };
 struct bpage{
         int keycount;
-        Indice indices[15];
-        int RRNHijos[16];
+        vector<Indice>indices;
+        vector<int>RRNHijos;
 };
 struct bpage2{
         int keycount;
-        Indice indices[16];
-        int RRNHijos[17];
+        vector<Indice>indices;
+        vector<int>RRNHijos;
 };
 union charint{
         char raw[sizeof(int)];
@@ -47,7 +47,7 @@ void Reindexar(const char*,map<string,int>&, vector<Campo>);
 void leerindices(const char*, map<string,int>&, Campo);
 int getStructure(const char*, vector<Campo>&);
 void Header(const char*, vector<Campo>&);
-void Agregar(const char*,vector<Campo>,map<string,int>&,bool);
+void Agregar(const char*,vector<Campo>,map<string,int>&,bool,Indice&);
 void Listar(const char*, vector<Campo>);
 void ILListar(const char*, map<string,int>, vector<Campo>);
 void Borrar(const char*, vector<Campo>);
@@ -58,21 +58,22 @@ void guardarindices(const char*, map<string,int>&,Campo);
 void ILModificar(const char*,vector<Campo>,map<string,int>&);
 //Funciones ArbolB
 void ListarB(const char*,const char*,int,Campo,vector<Campo>);
-Indice BusquedaB(const char*,string, bpage, int,Campo);
+void BusquedaB(const char*,string, bpage, int,Campo,Indice&,bool);
 void split(const char*,Indice,int,bpage, Indice&,int&,bpage&);
-void readpage(const char*,bpage&,int,Campo);
+void readpage(const char*,bpage&,int,vector<Indice>&,vector<int>&,Campo);
 void writepage(const char*,bpage,int,Campo);
 string insert(const char*,Campo,int&,Indice&,int&,Indice&);
+void copyind(Indice &,const Indice);
 void ListarB(const char* arbol,const char* nbin,int RRN,Campo c,vector<Campo>campos){
         if(RRN == -1)
                 return;
         else{
+                ifstream in (nbin,ios::in|ios::out);
                 bpage page;
-                readpage(arbol,page,RRN,c);
+                readpage(arbol,page,RRN,page.indices,page.RRNHijos,c);
                 for(int i=0; i < page.keycount+1;i++){
                         ListarB(arbol,nbin,page.RRNHijos[i],c,campos);
                         if(i<page.keycount){
-                                ifstream in (nbin,ios::in|ios::out);
                                 in.seekg(page.indices[i].offset);
                                 for(int j=0;j<campos.size();j++){
                                         string tipo(campos[j].tipo);
@@ -96,11 +97,16 @@ void ListarB(const char* arbol,const char* nbin,int RRN,Campo c,vector<Campo>cam
                                 }
                         }
                 }
+                in.close();
         }
 }
 void writepage(const char* arbol, bpage page,int RRN, Campo c){
-        ofstream out(arbol,ios::out|ios::binary);
-        out.seekp(RRN);
+      
+        fstream out(arbol,ios::binary|ios::out);
+        if(RRN == 0)
+                out.seekp(0);
+        else
+            out.seekp(RRN,ios::beg);
         out.write(reinterpret_cast<char*>(&page.keycount),sizeof(int));
         for(int i=0;i<page.keycount;i++){
                 string tipo(c.tipo);
@@ -108,11 +114,9 @@ void writepage(const char* arbol, bpage page,int RRN, Campo c){
                         int value = atoi(page.indices[i].Key.c_str());
                         out.write(reinterpret_cast<char*>(&value),sizeof(int));
                 }else{
-                        out.write(page.indices[i].Key.c_str(),c.tamano-1);
-                        
+                        out.write(page.indices[i].Key.c_str(),c.tamano-1);            
                 }
                 out.write(reinterpret_cast<char*>(&page.indices[i].offset),sizeof(int));
-
         }
         for(int i = page.keycount;i<15;i++){
                 string tipo(c.tipo);
@@ -120,7 +124,7 @@ void writepage(const char* arbol, bpage page,int RRN, Campo c){
                         int value = 0;
                         out.write(reinterpret_cast<char*>(&value),sizeof(int));
                 }else{  
-                        string st = "";
+                        string st = "NULL";
                         out.write(st.c_str(),c.tamano-1);
                         
                 }
@@ -128,16 +132,25 @@ void writepage(const char* arbol, bpage page,int RRN, Campo c){
                 out.write(reinterpret_cast<char*>(&n),sizeof(int));                
         }
         for(int i = 0; i < page.keycount+1; i++){
-                out.write(reinterpret_cast<char*>(&page.RRNHijos[i]),sizeof(int));
+                if(!page.RRNHijos.empty())
+                    out.write(reinterpret_cast<char*>(&page.RRNHijos[i]),sizeof(int));
+                else{
+                        int n = -1;
+                        out.write(reinterpret_cast<char*>(&n),sizeof(int));                                
+                        
+                }
         }
         for(int i = page.keycount+1;i < 16;i++){
                 int n =-1;
                 out.write(reinterpret_cast<char*>(&n),sizeof(int));                                
         }
+        out.close();
 
 }
-void readpage(const char* arbol, bpage& page,int RRN, Campo c){
+void readpage(const char* arbol, bpage& page,int RRN,vector<Indice>&indices,vector<int>&RRNHijos,Campo c){
         ifstream in(arbol,ios::in|ios::binary);
+        indices.clear();
+        RRNHijos.clear();
         in.seekg(RRN);
         charint ci;
         char buffer[sizeof(int)];
@@ -154,27 +167,29 @@ void readpage(const char* arbol, bpage& page,int RRN, Campo c){
                         memcpy(c1.raw,b,sizeof(int));
                         stringstream ss;
                         ss << c1.num;
-                        strcpy((char*)ind.Key.c_str(),(const char*)ss.str().c_str());
+                        ind.Key = ss.str();
                 }else{
                         char b[c.tamano-1];
                         in.read(b,c.tamano-1);
-                         b[c.tamano-1] ='\0';
-                        strcpy((char*)ind.Key.c_str(),b);
+                        b[c.tamano-1] ='\0';
+                        string str(b);
+                        ind.Key = str;
                 }
                 charint c2;
                 char b3[sizeof(int)];
                 in.read(b3,sizeof(int));
                 memcpy(c2.raw,b3,sizeof(int));
                 ind.offset = c2.num;
-                page.indices[i] = ind;
+                indices.push_back(ind);
         }
         for(int i = 0; i < 16; i++){
                 charint c3;
                 char buff[sizeof(int)];
                 in.read(buff,sizeof(int));
                 memcpy(c3.raw,buff,sizeof(int));
-                page.RRNHijos[i] = c3.num;
+                RRNHijos.push_back(c3.num);
         }
+        in.close();
 
 }
 void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_Key, int& Promo_RRN,bpage& newpage){
@@ -189,7 +204,7 @@ void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_K
             for(map<string,int>::iterator it = temporal.begin(); it != temporal.end();++it){
                     if(nuevo.Key.compare(it->first)==0)
                             position = p;
-                    strcpy((char*)workingpage.indices[p].Key.c_str(),(const char*)(it->first).c_str());
+                    workingpage.indices[p].Key=it->first;
                     workingpage.indices[p].offset = it->second;
                     workingpage.keycount++;
                     p++;
@@ -201,7 +216,7 @@ void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_K
                             p++;
                     workingpage.RRNHijos[p] = page.RRNHijos[i];
             }//Organiza los RRN
-            strcpy((char*)Promo_Key.Key.c_str(),(const char*)workingpage.indices[7].Key.c_str());
+            Promo_Key.Key = workingpage.indices[7].Key;
             Promo_Key.offset = workingpage.indices[7].offset;
             ifstream in(arbol,ios::in|ios::binary);
             in.seekg(0,ios::end);
@@ -209,11 +224,12 @@ void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_K
             in.close();
             p = 0;
             while(workingpage.indices[p].Key.compare(workingpage.indices[7].Key)!=0){
-                     strcpy((char*)page.indices[p].Key.c_str(),(const char*)workingpage.indices[p].Key.c_str());
+                     page.indices[p].Key = workingpage.indices[p].Key;
                      page.indices[p].offset = workingpage.indices[p].offset;
                      p++;
             }//agrega los indices a la pagina
-            page.keycount = p - 1;
+            page.keycount = 7;
+            newpage.keycount = 8;
             for(p; p < 15;p++){
                     Indice ind;
                     ind.Key = "";
@@ -224,11 +240,8 @@ void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_K
             p = page.keycount + 2;
             int i = 0;
             for(p;p<16;p++,i++){
-                     strcpy((char*)newpage.indices[i].Key.c_str(),(const char*)workingpage.indices[p].Key.c_str());
+                     newpage.indices[i].Key = workingpage.indices[p].Key;
                      newpage.indices[i].offset = workingpage.indices[p].offset;                  
-                     strcpy((char*)newpage.indices[p].Key.c_str(),(const char*)workingpage.indices[p].Key.c_str());
-                     newpage.indices[p].offset = workingpage.indices[p].offset;
-                     p++;
             }//agrega los indices a la pagina nueva
             for(int k = 0; k < 8; k++){
                     page.RRNHijos[k] = workingpage.RRNHijos[k];
@@ -238,40 +251,46 @@ void split(const char* arbol,Indice nuevo,int newRRN,bpage page, Indice& Promo_K
                     newpage.RRNHijos[i] = workingpage.RRNHijos[k];
            
 }
-Indice BusquedaB(const char* arbol, string data, bpage page, int RRN, Campo c){
+void BusquedaB(const char* arbol, string data, bpage page, int RRN, Campo c,Indice& ind,bool flag){
         int RRNant = RRN;
-        for(int i = 0; i < 15 ; i++){
-                if(page.indices[i].Key.compare("") == 0)
-                        break;
-                if(page.indices[i].Key.compare(data)==0)
-                        return page.indices[i];
-                if(page.indices[i].Key.compare(data) > 0)
+        for(int i = 0; i < page.keycount ; i++){
+               
+                if(page.indices[i].Key.compare(data)==0){
+                        ind.Key = page.indices[i].Key;
+                        ind.offset = page.indices[i].offset;
+                        return;
+                }
+                if(page.indices[i].Key.compare(data) < 0){
                         RRN = page.RRNHijos[i];
+                }
                 else
                         RRN = page.RRNHijos[i+1];
 
         }
-        if ( RRN == 0 ){
-                Indice ind;
+          if ( RRN == -1 || RRN == 0){
                 ind.Key = "RRN Page";
-                ind.offset = RRNant;
-                return ind;
-        }
-        readpage(arbol,page,RRN,c);        
-        return BusquedaB(arbol,data,page,RRN,c);
+                if(!flag)
+                    ind.offset = RRNant;
+                else
+                    ind.offset = -1;
+                return;
+       }
+        readpage(arbol,page,RRN,page.indices,page.RRNHijos,c);
+        return BusquedaB(arbol,data,page,RRN,c,ind,flag);
 }
 string insert(const char* arbol,Campo c,int& RRN, Indice& ind, int& Promo_RRN, Indice& Promo_Key){
         Indice P_B_Key;
         int P_B_RRN;
         if(RRN == -1){
-             strcpy((char*)Promo_Key.Key.c_str(),(const char*)ind.Key.c_str());
+             Promo_Key.Key = ind.Key;
              Promo_Key.offset = ind.offset;
              Promo_RRN = -1;
              return "Promoted";
         }else{
                 bpage page;
-                readpage(arbol,page,RRN, c);
-                Indice pos = BusquedaB(arbol,ind.Key,page,RRN,c);
+                readpage(arbol,page,RRN,page.indices,page.RRNHijos,c);
+                Indice pos;
+                BusquedaB(arbol,ind.Key,page,RRN,c,pos,true);
                 if(pos.Key.compare("RRN Page")!=0)
                         return "Error";
                 string return_value = insert(arbol,c,pos.offset,ind,P_B_RRN,P_B_Key);
@@ -288,7 +307,7 @@ string insert(const char* arbol,Campo c,int& RRN, Indice& ind, int& Promo_RRN, I
                         for(map<string,int>::iterator it = temporal.begin(); it != temporal.end();++it,p++){
                                 if(P_B_Key.Key.compare(it->first)==0)
                                         position = p;                                
-                                strcpy((char*)page.indices[p].Key.c_str(),(const char*)(it->first).c_str());
+                                page.indices[p].Key= it->first;
                                 page.indices[p].offset = it->second;
                         }
                         p=0;
@@ -300,7 +319,7 @@ string insert(const char* arbol,Campo c,int& RRN, Indice& ind, int& Promo_RRN, I
                                 page.RRNHijos[i] = page.RRNHijos[i-1];
                                 
                         }
-                        page.keycount++;
+                        page.keycount = page.keycount + 1;
                         writepage(arbol,page,RRN,c);
                         return "No Promotion";
                 }else{
@@ -999,7 +1018,6 @@ int Menu(bool& flag, char*& nbin,char*& nind,char*& btree, vector<Campo>&registr
                 strcpy((char*)name2.c_str(),(const char*)name1.c_str());
                 nbin = (char*)name1.c_str();
                 nind = (char*)strstream.str().c_str();
-                cout << nind << endl;
                 btree = (char*)name.c_str();
                 strcat(nbin,".bin");
                 if(getStructure(nbin,registros)==0){
@@ -1011,12 +1029,10 @@ int Menu(bool& flag, char*& nbin,char*& nind,char*& btree, vector<Campo>&registr
                         cam.tamano = 2;
                         cout << nind << endl;
                         string s2 = "CHAR";
-                        cout << nind << endl;
                         strcpy(cam.nombre,s2.c_str());
                         string ss = "Texto";
                         strcpy(cam.tipo,ss.c_str());
                         registros.push_back(cam);
-                        cout << nind << endl;
                         for(int i=0; i  < numcampos; i++){
                                 Campo c;
                                 int tipo;
@@ -1035,8 +1051,7 @@ int Menu(bool& flag, char*& nbin,char*& nind,char*& btree, vector<Campo>&registr
                                         c.tamano++;
                                 }
                                 registros.push_back(c);
-                        }
-                        cout << nind << endl;
+                        } 
                         Header(nbin,registros);                 
                         int choice;
                         cout << "Desea utilizar indices?[0(si)/1(no)]" << endl;
@@ -1048,11 +1063,14 @@ int Menu(bool& flag, char*& nbin,char*& nind,char*& btree, vector<Campo>&registr
                                         trein = "Indice";
                                         nind = (char*)strstream.str().c_str();
                                         strcat(nind,".ind");
-                                        cout << nind << endl;
                                         headerindices(nind);
                                 }else{
                                         trein = "Arbol";
                                         strcat(btree,".btree");
+                                        bpage page;  
+                                        page.keycount = 0;
+                                        writepage(btree,page,0, registros[1]);//Escribe la raiz
+
                                 }
                         }else{
                                 trein  = "Normal";
@@ -1078,16 +1096,26 @@ int Menu(bool& flag, char*& nbin,char*& nind,char*& btree, vector<Campo>&registr
                 if(name.compare("")==0)
                         cout << "Debe de abrir un archivo para poder insertar" << endl;
                 else{
+                        Indice ind;
+                        ind.Key = "";
                         if(trein.compare("Normal")==0){
-                                Agregar(nbin,registros,indices,false);         
+                                Agregar(nbin,registros,indices,false,ind);         
                         }else{
                                 if(trein.compare("Indice")==0){
-                                        Agregar(nbin,registros,indices,true);
+                                        Agregar(nbin,registros,indices,true,ind);
                                         Reindexar(nbin,indices,registros);
-                                }else{
+                                }else{ 
+                                        Agregar(nbin,registros,indices,false,ind); 
+                                        Indice m;
+                                        int rrn1,rrn2;
+                                        rrn1 =0;
+                                        rrn2=0;
+                                        insert(btree,registros[1],rrn1,ind,rrn2,m);
+                                        
                                 }
-                        }
+                    }
                 }
+                
 
         }
         if(opcion == 3){
@@ -1101,6 +1129,8 @@ int Menu(bool& flag, char*& nbin,char*& nind,char*& btree, vector<Campo>&registr
                                 if(trein.compare("Indice")==0){
                                         ILListar(nbin,indices,registros);
                                 }else{
+                                     ListarB(btree,nbin,0,registros[1],registros);
+
                                 }
                         }
                 }
@@ -1269,7 +1299,7 @@ int getStructure(const char*nbin, vector<Campo>& registros){
         }
 
 }//Donde se obtiene una estructura guardada previamente
-void Agregar(const char* nbin, vector<Campo> registros, map<string,int>& indices, bool flag){
+void Agregar(const char* nbin, vector<Campo> registros, map<string,int>& indices, bool flag,Indice&ind){
         fstream out (nbin, ios::in|ios::binary|ios::out);
         charint availist;
         charlongint records;
@@ -1293,8 +1323,7 @@ void Agregar(const char* nbin, vector<Campo> registros, map<string,int>& indices
         }else{
                 out.seekp(0,ios::end);
         }
-        Indice ind;
-        ind.offset = out.tellg();
+        ind.offset = out.tellp();
         for(int i=0; i< registros.size();i++){
                 if(i==0){
                         char p = '0';
@@ -1305,19 +1334,22 @@ void Agregar(const char* nbin, vector<Campo> registros, map<string,int>& indices
                                 int value;
                                 cout << "Ingrese " << registros[i].nombre << endl;
                                 cin >> value;
-                                if(i==0){
+                                if(i==1){
                                         stringstream ss;
                                         ss << value;
-                                        ind.Key = ss.str();
+                                        strcpy((char*)ind.Key.c_str(),(const char*)ss.str().c_str());
                                 }
                                 out.write(reinterpret_cast<char*>(&value), sizeof(int));
                         }else{
-                                char texto[registros[i].tamano];
+                                char texto[registros[i].tamano-1];
                                 cout << "Ingrese " << registros[i].nombre << endl;
-                                cin >> texto;
-                                if(i==0)
-                                        ind.Key = texto;
-                                out.write(texto,registros[i].tamano-1); 
+                                if(i==1){
+                                        cin >> ind.Key;
+                                        out.write(ind.Key.c_str(),registros[i].tamano-1);
+                                }else{
+                                    cin >> texto;
+                                    out.write(texto,registros[i].tamano-1); 
+                                }
                         }
                 }	
         }
